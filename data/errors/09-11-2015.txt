@@ -1,0 +1,4 @@
+[15:47:28] -->	Clase:		application.Application$1
+				Función:	run
+				Detalles:	java.net.UnknownHostException: hola
+

@@ -1,0 +1,72 @@
+[19:33:40] -->	Clase:		models.TrackersManager
+				Función:	updateTrackerKeepAlive
+				Detalles:	java.lang.NullPointerException
+
+[19:42:34] -->	Clase:		models.TrackersManager
+				Función:	createDatagram
+				Detalles:	java.lang.ArrayIndexOutOfBoundsException: 2048
+
+[19:46:22] -->	Clase:		models.TrackersManager
+				Función:	createDatagram
+				Detalles:	java.lang.ArrayIndexOutOfBoundsException: 2048
+
+[19:49:47] -->	Clase:		models.TrackersManager
+				Función:	createDatagram
+				Detalles:	java.lang.ArrayIndexOutOfBoundsException: 2048
+
+[19:54:17] -->	Clase:		models.TrackersManager
+				Función:	createDatagram
+				Detalles:	java.lang.ArrayIndexOutOfBoundsException: 2048
+
+[20:01:01] -->	Clase:		models.TrackersManager
+				Función:	createDatagram
+				Detalles:	java.lang.ArrayIndexOutOfBoundsException: 2048
+
+[20:08:10] -->	Clase:		models.TrackersManager
+				Función:	createDatagram
+				Detalles:	java.lang.ArrayIndexOutOfBoundsException: 2048
+
+[20:13:04] -->	Clase:		models.TrackersManager
+				Función:	createDatagram
+				Detalles:	java.lang.ArrayIndexOutOfBoundsException: 2048
+
+[20:15:31] -->	Clase:		models.TrackersManager
+				Función:	createDatagram
+				Detalles:	java.lang.ArrayIndexOutOfBoundsException: 2048
+
+[20:22:37] -->	Clase:		models.TrackersManager
+				Función:	createDatagram
+				Detalles:	java.lang.ArrayIndexOutOfBoundsException: -1
+
+[20:28:37] -->	Clase:		models.TrackersManager
+				Función:	createDatagram
+				Detalles:	java.lang.ArrayIndexOutOfBoundsException: -1
+
+[20:36:34] -->	Clase:		models.TrackersManager
+				Función:	createDatagram
+				Detalles:	java.lang.ArrayIndexOutOfBoundsException: 2048
+
+[20:38:00] -->	Clase:		models.TrackersManager
+				Función:	createDatagram
+				Detalles:	java.lang.ArrayIndexOutOfBoundsException: 2048
+
+[20:42:31] -->	Clase:		models.TrackersManager
+				Función:	createDatagram
+				Detalles:	java.lang.ArrayIndexOutOfBoundsException: 2048
+
+[20:43:19] -->	Clase:		models.TrackersManager
+				Función:	createDatagram
+				Detalles:	java.lang.ArrayIndexOutOfBoundsException: 2048
+
+[20:44:05] -->	Clase:		models.TrackersManager
+				Función:	createDatagram
+				Detalles:	java.lang.ArrayIndexOutOfBoundsException: 2048
+
+[20:47:29] -->	Clase:		models.TrackersManager
+				Función:	createDatagram
+				Detalles:	java.lang.ArrayIndexOutOfBoundsException: 2048
+
+[20:48:20] -->	Clase:		models.TrackersManager
+				Función:	createDatagram
+				Detalles:	java.lang.ArrayIndexOutOfBoundsException: 2048
+

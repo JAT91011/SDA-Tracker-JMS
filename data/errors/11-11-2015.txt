@@ -1,0 +1,60 @@
+[20:03:21] -->	Clase:		models.TrackersManager
+				Función:	processData
+				Detalles:	java.lang.NullPointerException
+
+[20:07:22] -->	Clase:		models.TrackersManager
+				Función:	processData
+				Detalles:	java.lang.NullPointerException
+
+[20:07:22] -->	Clase:		models.TrackersManager
+				Función:	processData
+				Detalles:	java.lang.ArrayIndexOutOfBoundsException: 4
+
+[20:07:22] -->	Clase:		models.TrackersManager
+				Función:	processData
+				Detalles:	java.lang.NullPointerException
+
+[20:09:24] -->	Clase:		models.TrackersManager
+				Función:	processData
+				Detalles:	java.lang.NullPointerException
+
+[20:09:24] -->	Clase:		models.TrackersManager
+				Función:	processData
+				Detalles:	java.lang.NullPointerException
+
+[20:09:24] -->	Clase:		models.TrackersManager
+				Función:	processData
+				Detalles:	java.lang.NullPointerException
+
+[20:12:34] -->	Clase:		models.TrackersManager
+				Función:	processData
+				Detalles:	java.lang.NullPointerException
+
+[20:12:34] -->	Clase:		models.TrackersManager
+				Función:	processData
+				Detalles:	java.lang.NullPointerException
+
+[20:12:34] -->	Clase:		models.TrackersManager
+				Función:	processData
+				Detalles:	java.lang.NullPointerException
+
+[20:12:34] -->	Clase:		models.TrackersManager
+				Función:	processData
+				Detalles:	java.lang.NullPointerException
+
+[20:12:34] -->	Clase:		models.TrackersManager
+				Función:	processData
+				Detalles:	java.lang.NullPointerException
+
+[20:12:34] -->	Clase:		models.TrackersManager
+				Función:	processData
+				Detalles:	java.lang.NullPointerException
+
+[20:14:05] -->	Clase:		models.TrackersManager
+				Función:	processData
+				Detalles:	java.lang.NullPointerException
+
+[20:14:05] -->	Clase:		models.TrackersManager
+				Función:	processData
+				Detalles:	java.lang.NullPointerException
+
