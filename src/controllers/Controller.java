@@ -9,9 +9,8 @@ public class Controller {
 
 	}
 
-	public boolean connect(final String ip, final int port) {
+	public boolean connect() {
 		try {
-			TrackersManager.getInstance().connect(ip, port);
 			TrackersManager.getInstance().start();
 			return true;
 		} catch (Exception e) {
@@ -23,11 +22,7 @@ public class Controller {
 	}
 
 	public void disconnect() {
-		TrackersManager.getInstance().disconnect();
-	}
-
-	public boolean isConnected() {
-		return TrackersManager.getInstance().isEnable();
+		TrackersManager.getInstance().stop();
 	}
 
 	public int numberOfTrackers() {

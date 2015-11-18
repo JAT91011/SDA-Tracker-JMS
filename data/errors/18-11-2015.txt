@@ -1,0 +1,24 @@
+[21:10:22] -->	Clase:		models.TrackersManager
+				Función:	start
+				Detalles:	javax.naming.NameNotFoundException: Topic
+
+[21:14:49] -->	Clase:		models.TrackersManager
+				Función:	start
+				Detalles:	java.lang.ClassCastException: org.apache.activemq.command.ActiveMQQueue cannot be cast to javax.jms.Topic
+
+[21:16:32] -->	Clase:		models.TrackersManager
+				Función:	start
+				Detalles:	javax.jms.JMSException: You cannot create a durable subscriber without specifying a unique clientID on a Connection
+
+[21:18:43] -->	Clase:		models.TrackersManager
+				Función:	start
+				Detalles:	javax.jms.JMSException: You cannot create a durable subscriber without specifying a unique clientID on a Connection
+
+[21:27:31] -->	Clase:		models.TrackersManager
+				Función:	start
+				Detalles:	javax.jms.InvalidClientIDException: Broker: localhost - Client: 0 already connected from tcp://127.0.0.1:52252
+
+[21:28:53] -->	Clase:		models.TrackersManager
+				Función:	start
+				Detalles:	javax.jms.IllegalStateException: Setting clientID on a used Connection is not allowed
+
