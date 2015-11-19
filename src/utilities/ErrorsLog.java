@@ -16,8 +16,13 @@ public class ErrorsLog {
 
 	private ErrorsLog() {
 		try {
-			this.file = new File("data/errors/"
-					+ new SimpleDateFormat("dd-MM-yyyy").format(Calendar.getInstance().getTime()) + ".txt");
+
+			File directory = new File(Constants.ERRORS_PATH);
+			if (!directory.exists()) {
+				directory.mkdir();
+			}
+
+			this.file = new File("data/errors/" + new SimpleDateFormat("dd-MM-yyyy").format(Calendar.getInstance().getTime()) + ".txt");
 			if (!this.file.exists()) {
 				this.file.createNewFile();
 			}
@@ -29,9 +34,8 @@ public class ErrorsLog {
 	public void writeLog(final String classname, final String method, final String details) {
 		try {
 			this.writer = new BufferedWriter(new FileWriter(file, true));
-			this.writer.write(new SimpleDateFormat("[HH:mm:ss]").format(Calendar.getInstance().getTime())
-					+ " -->\tClase:\t\t" + classname + "\n\t\t\t\tFunción:\t" + method + "\n\t\t\t\tDetalles:\t"
-					+ details + "\n\n");
+			this.writer.write(new SimpleDateFormat("[HH:mm:ss]").format(Calendar.getInstance().getTime()) + " -->\tClase:\t\t" + classname
+					+ "\n\t\t\t\tFunción:\t" + method + "\n\t\t\t\tDetalles:\t" + details + "\n\n");
 			this.writer.close();
 		} catch (IOException e) {
 			e.printStackTrace();

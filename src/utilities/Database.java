@@ -19,13 +19,19 @@ public class Database {
 
 	public void createDatabase(final int id) {
 		try {
-			File file = new File(Constants.DATABASE_PATH.replace("#", Integer.toString(id)));
+
+			File directory = new File(Constants.DATABASE_PATH);
+			if (!directory.exists()) {
+				directory.mkdir();
+			}
+
+			File file = new File(Constants.DATABASE_FILE_PATH.replace("#", Integer.toString(id)));
 			if (file.exists()) {
 				file.delete();
 			}
 
 			Class.forName("org.sqlite.JDBC");
-			this.connection = DriverManager.getConnection("jdbc:sqlite:" + Constants.DATABASE_PATH.replace("#", Integer.toString(id)));
+			this.connection = DriverManager.getConnection("jdbc:sqlite:" + Constants.DATABASE_FILE_PATH.replace("#", Integer.toString(id)));
 			this.update("PRAGMA encoding = \"UTF-8\";");
 		} catch (Exception e) {
 			e.printStackTrace();

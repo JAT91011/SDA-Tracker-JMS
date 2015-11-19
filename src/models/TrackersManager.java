@@ -135,7 +135,6 @@ public class TrackersManager extends Observable implements MessageListener {
 			this.currentTracker.setFirstConnection(new Date());
 			if (this.currentTracker.isMaster()) {
 				Window.getInstance().setTitle("Tracker [ID: " + this.currentTracker.getId() + "] [Mode: MASTER]");
-				System.out.println("Crea base datos");
 				Database.getInstance().createDatabase(this.currentTracker.getId());
 			} else {
 				Window.getInstance().setTitle("Tracker [ID: " + this.currentTracker.getId() + "] [Mode: SLAVE]");
@@ -203,11 +202,8 @@ public class TrackersManager extends Observable implements MessageListener {
 		try {
 			ObjectMessage message = this.queueSession.createObjectMessage();
 			message.setStringProperty("Filter", Integer.toString(idTracker));
-			Path path = Paths.get(Constants.DATABASE_PATH.replace("#", Integer.toString(this.currentTracker.getId())));
+			Path path = Paths.get(Constants.DATABASE_FILE_PATH.replace("#", Integer.toString(this.currentTracker.getId())));
 			byte[] data = Files.readAllBytes(path);
-
-			System.out.println("Se envia: " + data.length);
-
 			message.setObject(new Datagram(Datagram.DB_REPLICATION, this.currentTracker.getId(), idTracker, data));
 			this.queueSender.send(message);
 		} catch (Exception e) {
@@ -219,9 +215,8 @@ public class TrackersManager extends Observable implements MessageListener {
 
 	public synchronized void createDatabase(final byte[] database) {
 		try {
-			System.out.println("Se recibe: " + database.length);
 			FileOutputStream fileOuputStream = new FileOutputStream(
-					Constants.DATABASE_PATH.replace("#", Integer.toString(this.currentTracker.getId())));
+					Constants.DATABASE_FILE_PATH.replace("#", Integer.toString(this.currentTracker.getId())));
 			fileOuputStream.write(database);
 			fileOuputStream.close();
 		} catch (Exception e) {
@@ -338,7 +333,6 @@ public class TrackersManager extends Observable implements MessageListener {
 				t.setFirstConnection(new Date());
 				addTracker(t);
 				if (this.currentTracker != null && this.currentTracker.isMaster()) {
-					System.out.println("Te envio fichero tracker con la id: " + t.getId());
 					sendDatabase(idFrom);
 				}
 			} else {
