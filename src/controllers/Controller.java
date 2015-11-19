@@ -5,7 +5,9 @@ import utilities.ErrorsLog;
 
 public class Controller {
 
-	public Controller() {
+	private static Controller instance;
+
+	private Controller() {
 
 	}
 
@@ -25,7 +27,10 @@ public class Controller {
 		TrackersManager.getInstance().stop();
 	}
 
-	public int numberOfTrackers() {
-		return TrackersManager.getInstance().getTotalTrackers();
+	public static Controller getInstance() {
+		if (instance == null) {
+			instance = new Controller();
+		}
+		return instance;
 	}
 }

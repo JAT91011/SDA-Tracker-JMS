@@ -19,14 +19,13 @@ public class Database {
 
 	public void createDatabase(final int id) {
 		try {
-			File file = new File(Properties.getDatabasePath().replace("#", Integer.toString(id)));
+			File file = new File(Constants.DATABASE_PATH.replace("#", Integer.toString(id)));
 			if (file.exists()) {
 				file.delete();
 			}
 
 			Class.forName("org.sqlite.JDBC");
-			this.connection = DriverManager
-					.getConnection("jdbc:sqlite:" + Properties.getDatabasePath().replace("#", Integer.toString(id)));
+			this.connection = DriverManager.getConnection("jdbc:sqlite:" + Constants.DATABASE_PATH.replace("#", Integer.toString(id)));
 			this.update("PRAGMA encoding = \"UTF-8\";");
 		} catch (Exception e) {
 			e.printStackTrace();
@@ -125,9 +124,5 @@ public class Database {
 			instance = new Database();
 		}
 		return instance;
-	}
-
-	public static void main(String[] args) {
-		Database.getInstance();
 	}
 }

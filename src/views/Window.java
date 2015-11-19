@@ -1,7 +1,6 @@
 package views;
 
 import java.awt.BorderLayout;
-import java.awt.Dimension;
 
 import javax.swing.ImageIcon;
 import javax.swing.JFrame;
@@ -20,9 +19,8 @@ public class Window extends JFrame {
 		super();
 		setDefaultCloseOperation(EXIT_ON_CLOSE);
 		setIconImage(null);
-		setSize(600, 400);
+		setSize(750, 500);
 		setIconImage((new ImageIcon("icons/app-icon.png")).getImage());
-		setMinimumSize(new Dimension(700, 500));
 		setTitle("Tracker");
 		setLocationRelativeTo(null);
 

@@ -18,23 +18,20 @@ import views.components.JSlidePanel;
 
 public class TabsPanel extends JPanel implements MouseListener {
 
-	private static final long serialVersionUID = 8155818731609154350L;
+	private static final long	serialVersionUID	= 8155818731609154350L;
 
-	private JSlidePanel<JPanel> slider;
+	private JSlidePanel<JPanel>	slider;
 
-	private JLabel	lblDisconnect;
-	private JLabel	lblTrackers;
-	private JLabel	lblPeers;
+	private JLabel				lblDisconnect;
+	private JLabel				lblTrackers;
+	private JLabel				lblPeers;
 
-	private JPanel	container;
-	private boolean	watchingTrackers;
-
-	private Controller configController;
+	private JPanel				container;
+	private boolean				watchingTrackers;
 
 	public TabsPanel() {
 		setOpaque(true);
 
-		this.configController = new Controller();
 		this.slider = new JSlidePanel<JPanel>(this);
 
 		GridBagLayout gridBagLayout = new GridBagLayout();
@@ -99,7 +96,7 @@ public class TabsPanel extends JPanel implements MouseListener {
 
 	public void mouseClicked(MouseEvent e) {
 		if (e.getSource() == lblDisconnect) {
-			this.configController.disconnect();
+			Controller.getInstance().disconnect();
 			Window.getInstance().setTitle("Tracker");
 			Window.getInstance().getSlider().slideRight();
 		} else if (e.getSource() == lblTrackers) {

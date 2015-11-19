@@ -40,8 +40,8 @@ public class TrackersPanel extends JPanel implements Observer {
 		header = new String[4];
 		header[0] = "ID";
 		header[1] = "Master";
-		header[2] = "Ultimo keep alive";
-		header[3] = "Primera conexión";
+		header[2] = "Last keep alive";
+		header[3] = "First connection";
 		final String[][] content = new String[1][header.length];
 
 		modelTable = new DefaultTableModel();
@@ -89,11 +89,10 @@ public class TrackersPanel extends JPanel implements Observer {
 				for (Map.Entry<Integer, Tracker> entry : trackers.entrySet()) {
 					if (entry.getValue() != null && entry.getValue().getDifferenceBetweenKeepAlive() < 2) {
 						trackersTable.getModel().setValueAt(Integer.toString(entry.getValue().getId()), i, 0);
-						trackersTable.getModel().setValueAt(entry.getValue().isMaster() ? "Maestro" : "Esclavo", i, 1);
-						trackersTable.getModel().setValueAt(
-								Long.toString(entry.getValue().getDifferenceBetweenKeepAlive()) + " segundos", i, 2);
-						trackersTable.getModel().setValueAt(new SimpleDateFormat("HH:mm:ss - dd/MM/yyyy")
-								.format(entry.getValue().getFirstConnection()), i, 3);
+						trackersTable.getModel().setValueAt(entry.getValue().isMaster() ? "Master" : "Slave", i, 1);
+						trackersTable.getModel().setValueAt(Long.toString(entry.getValue().getDifferenceBetweenKeepAlive()) + " seconds", i, 2);
+						trackersTable.getModel()
+								.setValueAt(new SimpleDateFormat("HH:mm:ss - dd/MM/yyyy").format(entry.getValue().getFirstConnection()), i, 3);
 						i++;
 					}
 				}

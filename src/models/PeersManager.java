@@ -8,7 +8,6 @@ public class PeersManager extends Observable implements Runnable {
 
 	@Override
 	public void run() {
-		// TODO Auto-generated method stub
 
 	}
 
@@ -18,5 +17,4 @@ public class PeersManager extends Observable implements Runnable {
 		}
 		return instance;
 	}
-
 }

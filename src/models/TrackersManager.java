@@ -37,9 +37,9 @@ import org.apache.activemq.command.ActiveMQObjectMessage;
 
 import entities.Datagram;
 import entities.Tracker;
+import utilities.Constants;
 import utilities.Database;
 import utilities.ErrorsLog;
-import utilities.Properties;
 import views.Window;
 
 /**
@@ -77,8 +77,8 @@ public class TrackersManager extends Observable implements MessageListener {
 		try {
 			this.trackers = new ConcurrentHashMap<Integer, Tracker>();
 			this.context = new InitialContext();
-			this.topicConnectionFactory = (TopicConnectionFactory) this.context.lookup("TopicConnectionFactory");
-			this.queueConnectionFactory = (QueueConnectionFactory) this.context.lookup("QueueConnectionFactory");
+			this.topicConnectionFactory = (TopicConnectionFactory) this.context.lookup(Constants.TOPIC_CONNECTION_FACTORY_NAME);
+			this.queueConnectionFactory = (QueueConnectionFactory) this.context.lookup(Constants.QUEUE_CONNECTION_FACTORY_NAME);
 
 			this.timerSendKeepAlive = new Timer(1000, new ActionListener() {
 				public void actionPerformed(ActionEvent e) {
@@ -109,21 +109,21 @@ public class TrackersManager extends Observable implements MessageListener {
 
 	public boolean start() {
 		try {
-			this.topic = (Topic) this.context.lookup("jndi.topic");
+			this.topic = (Topic) this.context.lookup(Constants.TOPIC_NAME);
 			this.topicConnection = this.topicConnectionFactory.createTopicConnection();
-			this.topicConnection.setClientID("0");
 			this.topicSession = this.topicConnection.createTopicSession(false, Session.AUTO_ACKNOWLEDGE);
 			this.topicPublisher = this.topicSession.createPublisher(this.topic);
-			this.topicSubscriber = this.topicSession.createDurableSubscriber(this.topic, "0");
+			this.topicSubscriber = this.topicSession.createSubscriber(this.topic);
 
 			this.topicSubscriber.setMessageListener(this);
 			this.topicConnection.start();
 
-			this.queue = (Queue) this.context.lookup("jndi.queue");
+			this.queue = (Queue) this.context.lookup(Constants.QUEUE_NAME);
 			this.queueConnection = this.queueConnectionFactory.createQueueConnection();
 			this.queueSession = this.queueConnection.createQueueSession(false, Session.AUTO_ACKNOWLEDGE);
 			this.queueSender = this.queueSession.createSender(this.queue);
 
+			this.timerCheckKeepAlive.start();
 			Thread.sleep(3000);
 
 			int min = getLowerId();
@@ -142,10 +142,9 @@ public class TrackersManager extends Observable implements MessageListener {
 			}
 			addTracker(currentTracker);
 
-			// SEGUIR AQUI
-			// this.topicConnection.setClientID(Integer.toString(this.currentTracker.getId()));
 			this.queueReceiver = this.queueSession.createReceiver(this.queue, "Filter = '" + Integer.toString(this.currentTracker.getId()) + "'");
 			this.queueReceiver.setMessageListener(this);
+			this.queueConnection.start();
 
 			this.timerSendKeepAlive.start();
 
@@ -165,7 +164,6 @@ public class TrackersManager extends Observable implements MessageListener {
 
 			this.topicPublisher.close();
 			this.topicSubscriber.close();
-			this.topicSession.unsubscribe("ID");
 			this.topicSession.close();
 			this.topicConnection.close();
 
@@ -187,14 +185,6 @@ public class TrackersManager extends Observable implements MessageListener {
 
 	public synchronized void sendKeepAlive() {
 		try {
-			if (this.topicPublisher == null) {
-				System.out.println("Publisher nulo");
-			}
-
-			if (this.topicSession == null) {
-				System.out.println("Sesion nulo");
-			}
-
 			ObjectMessage message = this.topicSession.createObjectMessage();
 			message.setJMSType("ObjectMessage");
 			message.setJMSPriority(1);
@@ -213,9 +203,12 @@ public class TrackersManager extends Observable implements MessageListener {
 		try {
 			ObjectMessage message = this.queueSession.createObjectMessage();
 			message.setStringProperty("Filter", Integer.toString(idTracker));
-			Path path = Paths.get(Properties.getDatabasePath().replace("#", Integer.toString(this.currentTracker.getId())));
-			byte[] databaseBytes = Files.readAllBytes(path);
-			message.setObject(new Datagram(Datagram.KEEP_ALIVE, this.currentTracker.getId(), idTracker, databaseBytes));
+			Path path = Paths.get(Constants.DATABASE_PATH.replace("#", Integer.toString(this.currentTracker.getId())));
+			byte[] data = Files.readAllBytes(path);
+
+			System.out.println("Se envia: " + data.length);
+
+			message.setObject(new Datagram(Datagram.DB_REPLICATION, this.currentTracker.getId(), idTracker, data));
 			this.queueSender.send(message);
 		} catch (Exception e) {
 			ErrorsLog.getInstance().writeLog(this.getClass().getName(), new Object() {
@@ -226,8 +219,9 @@ public class TrackersManager extends Observable implements MessageListener {
 
 	public synchronized void createDatabase(final byte[] database) {
 		try {
+			System.out.println("Se recibe: " + database.length);
 			FileOutputStream fileOuputStream = new FileOutputStream(
-					Properties.getDatabasePath().replace("#", Integer.toString(this.currentTracker.getId())));
+					Constants.DATABASE_PATH.replace("#", Integer.toString(this.currentTracker.getId())));
 			fileOuputStream.write(database);
 			fileOuputStream.close();
 		} catch (Exception e) {
@@ -336,20 +330,20 @@ public class TrackersManager extends Observable implements MessageListener {
 		return instance.trackers;
 	}
 
-	public synchronized void updateTrackerKeepAlive(final int id) {
+	public synchronized void updateTrackerKeepAlive(final int idFrom) {
 		try {
-			if (trackers.get(id) == null) {
-				Tracker t = new Tracker(id, false);
+			if (trackers.get(idFrom) == null) {
+				Tracker t = new Tracker(idFrom, false);
 				t.setLastKeepAlive(new Date());
 				t.setFirstConnection(new Date());
 				addTracker(t);
 				if (this.currentTracker != null && this.currentTracker.isMaster()) {
 					System.out.println("Te envio fichero tracker con la id: " + t.getId());
-					sendDatabase(id);
+					sendDatabase(idFrom);
 				}
 			} else {
-				trackers.get(id).setLastKeepAlive(new Date());
-				setTracker(trackers.get(id));
+				trackers.get(idFrom).setLastKeepAlive(new Date());
+				setTracker(trackers.get(idFrom));
 			}
 		} catch (Exception ex) {
 			ErrorsLog.getInstance().writeLog(this.getClass().getName(), new Object() {
@@ -413,7 +407,6 @@ public class TrackersManager extends Observable implements MessageListener {
 		try {
 			if (message != null && message.getClass().getCanonicalName().equals(ActiveMQObjectMessage.class.getCanonicalName())) {
 				Datagram datagram = (Datagram) ((ObjectMessage) message).getObject();
-
 				switch (datagram.getId()) {
 
 					case 1: // DB_REPLICATION

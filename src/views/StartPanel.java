@@ -7,6 +7,8 @@ import java.awt.GridBagLayout;
 import java.awt.Insets;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
 
 import javax.swing.ImageIcon;
 import javax.swing.JButton;
@@ -19,46 +21,69 @@ public class StartPanel extends JPanel implements ActionListener {
 
 	private static final long	serialVersionUID	= -1527615628965557447L;
 
-	private Controller			configController;
 	private JButton				btnNext;
 	private JLabel				lblMessage;
 	private JPanel				panLoading;
+	private JPanel				panFooter;
 
 	public StartPanel() {
 
-		configController = new Controller();
-
 		setBackground(new Color(100, 149, 237));
 		GridBagLayout gridBagLayout = new GridBagLayout();
-		gridBagLayout.columnWidths = new int[] { 0, 0, 360, 0, 0, 0 };
-		gridBagLayout.rowHeights = new int[] { 0, 40, 40, 40, 30, 0, 0, 0 };
-		gridBagLayout.columnWeights = new double[] { 1.0, 0.0, 0.0, 0.0, 1.0, Double.MIN_VALUE };
-		gridBagLayout.rowWeights = new double[] { 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, Double.MIN_VALUE };
+		gridBagLayout.columnWidths = new int[] { 0, 360, 0, 0 };
+		gridBagLayout.rowHeights = new int[] { 0, 40, 0, 40, 0 };
+		gridBagLayout.columnWeights = new double[] { 1.0, 0.0, 1.0, Double.MIN_VALUE };
+		gridBagLayout.rowWeights = new double[] { 1.0, 0.0, 1.0, 0.0, Double.MIN_VALUE };
 		setLayout(gridBagLayout);
 
-		btnNext = new JButton(new ImageIcon("icons/next-icon.png"));
+		btnNext = new JButton(new ImageIcon("icons/start-icon-off.png"));
+		btnNext.addMouseListener(new MouseAdapter() {
+			@Override
+			public void mouseEntered(MouseEvent e) {
+				btnNext.setIcon(new ImageIcon("icons/start-icon-on.png"));
+			}
+
+			@Override
+			public void mouseExited(MouseEvent e) {
+				btnNext.setIcon(new ImageIcon("icons/start-icon-off.png"));
+			}
+		});
 		btnNext.setContentAreaFilled(false);
 		btnNext.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
 		btnNext.setFocusPainted(false);
 		btnNext.setBorderPainted(false);
 		btnNext.addActionListener(this);
 		GridBagConstraints gbc_btnNewButton = new GridBagConstraints();
-		gbc_btnNewButton.fill = GridBagConstraints.BOTH;
-		gbc_btnNewButton.gridheight = 3;
 		gbc_btnNewButton.insets = new Insets(0, 0, 5, 5);
-		gbc_btnNewButton.gridx = 3;
+		gbc_btnNewButton.gridx = 1;
 		gbc_btnNewButton.gridy = 1;
 		add(btnNext, gbc_btnNewButton);
 
+		panFooter = new JPanel();
+		panFooter.setOpaque(false);
+		GridBagConstraints gbc_panFooter = new GridBagConstraints();
+		gbc_panFooter.gridwidth = 3;
+		gbc_panFooter.insets = new Insets(0, 10, 10, 10);
+		gbc_panFooter.fill = GridBagConstraints.BOTH;
+		gbc_panFooter.gridx = 0;
+		gbc_panFooter.gridy = 3;
+		add(panFooter, gbc_panFooter);
+		GridBagLayout gbl_panFooter = new GridBagLayout();
+		gbl_panFooter.columnWidths = new int[] { 0, 0, 0 };
+		gbl_panFooter.rowHeights = new int[] { 0, 0 };
+		gbl_panFooter.columnWeights = new double[] { 1.0, 0.0, Double.MIN_VALUE };
+		gbl_panFooter.rowWeights = new double[] { 1.0, Double.MIN_VALUE };
+		panFooter.setLayout(gbl_panFooter);
+
 		panLoading = new JPanel();
+		GridBagConstraints gbc_panLoading = new GridBagConstraints();
+		gbc_panLoading.anchor = GridBagConstraints.SOUTHWEST;
+		gbc_panLoading.insets = new Insets(0, 0, 0, 5);
+		gbc_panLoading.gridx = 0;
+		gbc_panLoading.gridy = 0;
+		panFooter.add(panLoading, gbc_panLoading);
 		panLoading.setVisible(false);
 		panLoading.setOpaque(false);
-		GridBagConstraints gbc_panLoading = new GridBagConstraints();
-		gbc_panLoading.insets = new Insets(0, 0, 5, 5);
-		gbc_panLoading.fill = GridBagConstraints.BOTH;
-		gbc_panLoading.gridx = 2;
-		gbc_panLoading.gridy = 4;
-		add(panLoading, gbc_panLoading);
 		GridBagLayout gbl_panLoading = new GridBagLayout();
 		gbl_panLoading.columnWidths = new int[] { 0, 0, 0 };
 		gbl_panLoading.rowHeights = new int[] { 0, 0 };
@@ -75,7 +100,7 @@ public class StartPanel extends JPanel implements ActionListener {
 		panLoading.add(lblSpinner, gbc_lblSpinner);
 		lblSpinner.setText("");
 
-		lblMessage = new JLabel("Espera un momento...");
+		lblMessage = new JLabel("Receiving data...");
 		GridBagConstraints gbc_lblMessage = new GridBagConstraints();
 		gbc_lblMessage.anchor = GridBagConstraints.EAST;
 		gbc_lblMessage.gridx = 1;
@@ -83,15 +108,13 @@ public class StartPanel extends JPanel implements ActionListener {
 		panLoading.add(lblMessage, gbc_lblMessage);
 		lblMessage.setForeground(Color.WHITE);
 
-		JLabel lblSign = new JLabel("Creado por Jordan Aranda y Endika Salgueiro");
-		lblSign.setForeground(Color.WHITE);
+		JLabel lblSign = new JLabel("Created by Jordan Aranda & Endika Salgueiro");
 		GridBagConstraints gbc_lblSign = new GridBagConstraints();
-		gbc_lblSign.anchor = GridBagConstraints.EAST;
-		gbc_lblSign.gridwidth = 5;
-		gbc_lblSign.insets = new Insets(0, 0, 10, 10);
-		gbc_lblSign.gridx = 0;
-		gbc_lblSign.gridy = 6;
-		add(lblSign, gbc_lblSign);
+		gbc_lblSign.anchor = GridBagConstraints.SOUTH;
+		gbc_lblSign.gridx = 1;
+		gbc_lblSign.gridy = 0;
+		panFooter.add(lblSign, gbc_lblSign);
+		lblSign.setForeground(Color.WHITE);
 	}
 
 	public JButton getNextButton() {
@@ -100,7 +123,7 @@ public class StartPanel extends JPanel implements ActionListener {
 
 	public void actionPerformed(ActionEvent e) {
 		if (e.getSource() == btnNext) {
-			new ConnectThread(this, this.configController).start();
+			new ConnectThread(this).start();
 		}
 	}
 
@@ -112,17 +135,15 @@ public class StartPanel extends JPanel implements ActionListener {
 
 class ConnectThread extends Thread {
 
-	private Controller	controller;
-	private StartPanel	startPanel;
+	private StartPanel startPanel;
 
-	public ConnectThread(final StartPanel startPanel, final Controller controller) {
+	public ConnectThread(final StartPanel startPanel) {
 		this.startPanel = startPanel;
-		this.controller = controller;
 	}
 
 	public void run() {
 		this.startPanel.getLoadingPanel().setVisible(true);
-		if (this.controller.connect()) {
+		if (Controller.getInstance().connect()) {
 			this.startPanel.getLoadingPanel().setVisible(false);
 			Window.getInstance().getSlider().slideLeft();
 		} else {
