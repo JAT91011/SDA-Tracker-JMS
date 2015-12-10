@@ -17,6 +17,7 @@ public class Datagram implements Serializable {
 	private int					idTrackerFrom;
 	private int					idTrackerTo;
 	private byte[]				content;
+	private boolean				isMaster;
 
 	public Datagram() {
 
@@ -27,6 +28,15 @@ public class Datagram implements Serializable {
 		this.idTrackerFrom = idTrackerFrom;
 		this.idTrackerTo = -1;
 		this.content = null;
+		this.isMaster = false;
+	}
+
+	public Datagram(final int id, final int idTrackerFrom, final boolean isMaster) {
+		this.id = id;
+		this.idTrackerFrom = idTrackerFrom;
+		this.idTrackerTo = -1;
+		this.content = null;
+		this.isMaster = isMaster;
 	}
 
 	public Datagram(final int id, final int idTrackerFrom, final int idTrackerTo) {
@@ -34,6 +44,7 @@ public class Datagram implements Serializable {
 		this.idTrackerFrom = idTrackerFrom;
 		this.idTrackerTo = idTrackerTo;
 		this.content = null;
+		this.isMaster = false;
 	}
 
 	public Datagram(final int id, final int idTrackerFrom, final int idTrackerTo, final byte[] content) {
@@ -41,6 +52,7 @@ public class Datagram implements Serializable {
 		this.idTrackerFrom = idTrackerFrom;
 		this.idTrackerTo = idTrackerTo;
 		this.content = content;
+		this.isMaster = false;
 	}
 
 	public int getId() {
@@ -73,5 +85,13 @@ public class Datagram implements Serializable {
 
 	public void setContent(byte[] content) {
 		this.content = content;
+	}
+
+	public boolean isMaster() {
+		return isMaster;
+	}
+
+	public void setMaster(boolean isMaster) {
+		this.isMaster = isMaster;
 	}
 }

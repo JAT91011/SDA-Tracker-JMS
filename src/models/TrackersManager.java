@@ -126,11 +126,6 @@ public class TrackersManager extends Observable implements MessageListener {
 			this.timerCheckKeepAlive.start();
 			Thread.sleep(3000);
 
-			int min = getLowerId();
-			if (min != 0) {
-				trackers.get(min).setMaster(true);
-			}
-
 			this.currentTracker = new Tracker(getAvailableId(), this.trackers.size() == 0);
 			this.currentTracker.setFirstConnection(new Date());
 			if (this.currentTracker.isMaster()) {
@@ -188,8 +183,7 @@ public class TrackersManager extends Observable implements MessageListener {
 			message.setJMSType("ObjectMessage");
 			message.setJMSPriority(1);
 			message.setJMSMessageID(Integer.toString(this.currentTracker.getId()));
-			message.setObject(new Datagram(Datagram.KEEP_ALIVE, this.currentTracker.getId()));
-
+			message.setObject(new Datagram(Datagram.KEEP_ALIVE, this.currentTracker.getId(), this.currentTracker.isMaster()));
 			this.topicPublisher.publish(message);
 		} catch (JMSException e) {
 			ErrorsLog.getInstance().writeLog(this.getClass().getName(), new Object() {
@@ -325,10 +319,10 @@ public class TrackersManager extends Observable implements MessageListener {
 		return instance.trackers;
 	}
 
-	public synchronized void updateTrackerKeepAlive(final int idFrom) {
+	public synchronized void updateTrackerKeepAlive(final int idFrom, final boolean isMaster) {
 		try {
 			if (trackers.get(idFrom) == null) {
-				Tracker t = new Tracker(idFrom, false);
+				Tracker t = new Tracker(idFrom, isMaster);
 				t.setLastKeepAlive(new Date());
 				t.setFirstConnection(new Date());
 				addTracker(t);
@@ -420,7 +414,7 @@ public class TrackersManager extends Observable implements MessageListener {
 						break;
 
 					case 5: // KEEP_ALIVE
-						updateTrackerKeepAlive(datagram.getIdTrackerFrom());
+						updateTrackerKeepAlive(datagram.getIdTrackerFrom(), datagram.isMaster());
 						break;
 
 					case 9: // ERROR
