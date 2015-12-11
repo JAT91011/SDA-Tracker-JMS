@@ -1,5 +1,6 @@
 package controllers;
 
+import models.PeersManager;
 import models.TrackersManager;
 import utilities.ErrorsLog;
 
@@ -11,9 +12,10 @@ public class Controller {
 
 	}
 
-	public boolean connect() {
+	public boolean connect(final String ip, final int port) {
 		try {
 			TrackersManager.getInstance().start();
+			PeersManager.getInstance().start(ip, port);
 			return true;
 		} catch (Exception e) {
 			ErrorsLog.getInstance().writeLog(this.getClass().getName(), new Object() {
