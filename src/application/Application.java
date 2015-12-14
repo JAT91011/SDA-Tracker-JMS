@@ -12,6 +12,7 @@ import views.Window;
 public class Application {
 
 	public static void main(final String[] args) {
+		System.out.println("TRACKER START");
 		EventQueue.invokeLater(new Runnable() {
 			public void run() {
 				try {

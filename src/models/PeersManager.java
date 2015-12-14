@@ -14,6 +14,12 @@ public class PeersManager extends Observable implements Runnable {
 
 	private static PeersManager	instance;
 
+	private static int			OK						= 0;
+	private static int			NEW_CONNECTION			= 1;
+	private static int			ANNOUNCE				= 2;
+	private static int			ANNOUNCE_RESPONSE		= 3;
+	private static int			ERR						= 99;
+
 	private static int			DATAGRAM_CONTENT_LENGTH	= 2032;
 	private static int			DATAGRAM_HEADER_LENGTH	= 16;
 
@@ -95,7 +101,7 @@ public class PeersManager extends Observable implements Runnable {
 	public byte[][] createDatagram(int code, byte[] data) {
 		byte[][] datagrams = null;
 		try {
-			int length = data.length;
+			int length = data != null ? data.length : 0;
 			int partitions = 0;
 			if (length < (DATAGRAM_CONTENT_LENGTH)) {
 				partitions = 1;
@@ -131,25 +137,27 @@ public class PeersManager extends Observable implements Runnable {
 				datagrams[i][11] = codeCurrentPartition[3];
 
 				// LENGTH
-				if (i + 1 == partitions) {
-					byte[] lengthArray = ByteBuffer.allocate(4).putInt(length).array();
-					datagrams[i][12] = lengthArray[0];
-					datagrams[i][13] = lengthArray[1];
-					datagrams[i][14] = lengthArray[2];
-					datagrams[i][15] = lengthArray[3];
+				if (data != null) {
+					if (i + 1 == partitions) {
+						byte[] lengthArray = ByteBuffer.allocate(4).putInt(length).array();
+						datagrams[i][12] = lengthArray[0];
+						datagrams[i][13] = lengthArray[1];
+						datagrams[i][14] = lengthArray[2];
+						datagrams[i][15] = lengthArray[3];
 
-					for (int j = 0; j < length - (DATAGRAM_CONTENT_LENGTH * i); j++) {
-						datagrams[i][DATAGRAM_HEADER_LENGTH + j] = data[j + (DATAGRAM_CONTENT_LENGTH * i)];
-					}
-				} else {
-					byte[] lengthArray = ByteBuffer.allocate(4).putInt(DATAGRAM_CONTENT_LENGTH).array();
-					datagrams[i][12] = lengthArray[0];
-					datagrams[i][13] = lengthArray[1];
-					datagrams[i][14] = lengthArray[2];
-					datagrams[i][15] = lengthArray[3];
+						for (int j = 0; j < length - (DATAGRAM_CONTENT_LENGTH * i); j++) {
+							datagrams[i][DATAGRAM_HEADER_LENGTH + j] = data[j + (DATAGRAM_CONTENT_LENGTH * i)];
+						}
+					} else {
+						byte[] lengthArray = ByteBuffer.allocate(4).putInt(DATAGRAM_CONTENT_LENGTH).array();
+						datagrams[i][12] = lengthArray[0];
+						datagrams[i][13] = lengthArray[1];
+						datagrams[i][14] = lengthArray[2];
+						datagrams[i][15] = lengthArray[3];
 
-					for (int j = DATAGRAM_CONTENT_LENGTH * i; j < DATAGRAM_CONTENT_LENGTH * (i + 1); j++) {
-						datagrams[i][DATAGRAM_HEADER_LENGTH + (j - (i * DATAGRAM_CONTENT_LENGTH))] = data[j];
+						for (int j = DATAGRAM_CONTENT_LENGTH * i; j < DATAGRAM_CONTENT_LENGTH * (i + 1); j++) {
+							datagrams[i][DATAGRAM_HEADER_LENGTH + (j - (i * DATAGRAM_CONTENT_LENGTH))] = data[j];
+						}
 					}
 				}
 			}
@@ -172,14 +180,13 @@ public class PeersManager extends Observable implements Runnable {
 	public void processData(final byte[] data) {
 		try {
 			int code = ByteBuffer.wrap(Arrays.copyOfRange(data, 0, 4)).getInt();
-			// System.out.println("Codigo recibido: " + code);
+			System.out.println("Codigo recibido: " + code);
 			switch (code) {
 				case 0: // OK
-
 					break;
 
 				case 1: // NEW_CONNECTION
-					// TODO
+					sendData(createDatagram(OK, null)[0]);
 					break;
 
 				case 2: // ANNOUNCE
@@ -200,15 +207,18 @@ public class PeersManager extends Observable implements Runnable {
 
 	@Override
 	public void run() {
-		while (this.enable) {
-			try {
+		try {
+			while (this.enable) {
 				this.buffer = new byte[DATAGRAM_CONTENT_LENGTH + DATAGRAM_HEADER_LENGTH];
 				this.messageIn = new DatagramPacket(buffer, buffer.length);
+
 				this.socket.receive(messageIn);
-			} catch (IOException e) {
-				e.printStackTrace();
+				processData(this.buffer);
 			}
-			processData(this.buffer);
+		} catch (Exception e) {
+			ErrorsLog.getInstance().writeLog(this.getClass().getName(), new Object() {
+			}.getClass().getEnclosingMethod().getName(), e.toString());
+			e.printStackTrace();
 		}
 	}
 
