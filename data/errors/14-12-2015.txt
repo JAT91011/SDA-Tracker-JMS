@@ -1,4 +1,0 @@
-[16:08:26] -->	Clase:		models.PeersManager
-				Función:	start
-				Detalles:	java.net.SocketException: error setting options
-

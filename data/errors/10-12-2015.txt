@@ -1,8 +1,0 @@
-[18:28:47] -->	Clase:		models.PeersManager
-				Función:	start
-				Detalles:	java.net.BindException: Permission denied
-
-[18:54:02] -->	Clase:		models.PeersManager
-				Función:	start
-				Detalles:	java.net.BindException: Permission denied
-
