@@ -13,6 +13,14 @@ public class Peer {
 
 	}
 
+	public Peer(int id, String ip, int port) {
+		super();
+		this.id = id;
+		this.ip = ip;
+		this.port = port;
+		this.hashmapContents = null;
+	}
+
 	public Peer(int id, String ip, int port, Vector<String> hashmapContents) {
 		super();
 		this.id = id;

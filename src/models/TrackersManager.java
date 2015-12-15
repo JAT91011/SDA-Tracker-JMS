@@ -6,9 +6,11 @@ import java.io.FileOutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.sql.ResultSet;
 import java.util.Date;
 import java.util.Map;
 import java.util.Observable;
+import java.util.Vector;
 import java.util.concurrent.ConcurrentHashMap;
 
 import javax.jms.JMSException;
@@ -36,6 +38,7 @@ import javax.swing.Timer;
 import org.apache.activemq.command.ActiveMQObjectMessage;
 
 import entities.Datagram;
+import entities.Peer;
 import entities.Tracker;
 import utilities.Constants;
 import utilities.Database;
@@ -207,12 +210,22 @@ public class TrackersManager extends Observable implements MessageListener {
 		}
 	}
 
-	public synchronized void createDatabase(final byte[] database) {
+	public synchronized void loadDatabase(final byte[] database) {
 		try {
+			// Crea la base de datos
 			FileOutputStream fileOuputStream = new FileOutputStream(
 					Constants.DATABASE_FILE_PATH.replace("#", Integer.toString(this.currentTracker.getId())));
 			fileOuputStream.write(database);
 			fileOuputStream.close();
+
+			// Carga los peers de la base de datos en memoria
+			Vector<Peer> peers = new Vector<Peer>();
+			Database.getInstance().createConnection(this.currentTracker.getId());
+			ResultSet rs = Database.getInstance().consult("SELECT * FROM PEERS ORDER BY id");
+			while (rs.next()) {
+				peers.add(new Peer(rs.getInt("id"), rs.getString("ip"), rs.getInt("port")));
+			}
+			PeersManager.getInstance().addAllPeers(peers);
 		} catch (Exception e) {
 			ErrorsLog.getInstance().writeLog(this.getClass().getName(), new Object() {
 			}.getClass().getEnclosingMethod().getName(), e.toString());
@@ -223,7 +236,7 @@ public class TrackersManager extends Observable implements MessageListener {
 	/**
 	 * Funcion para obtener la primera ID disponible
 	 * 
-	 * @return La primera ID disponible
+	 * @return La primera ID disponibleloadDatabase
 	 */
 	public synchronized int getAvailableId() {
 		try {
@@ -384,6 +397,10 @@ public class TrackersManager extends Observable implements MessageListener {
 		return trackers.size();
 	}
 
+	public Tracker getCurrentTracker() {
+		return currentTracker;
+	}
+
 	public static TrackersManager getInstance() {
 		if (instance == null) {
 			instance = new TrackersManager();
@@ -398,7 +415,8 @@ public class TrackersManager extends Observable implements MessageListener {
 				switch (datagram.getId()) {
 
 					case 1: // DB_REPLICATION
-						createDatabase(datagram.getContent());
+						loadDatabase(datagram.getContent());
+
 						break;
 
 					case 2: // READY_TO_SAVE

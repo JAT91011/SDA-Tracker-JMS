@@ -30,14 +30,22 @@ public class Database {
 				file.delete();
 			}
 
-			Class.forName("org.sqlite.JDBC");
-			this.connection = DriverManager.getConnection("jdbc:sqlite:" + Constants.DATABASE_FILE_PATH.replace("#", Integer.toString(id)));
-			this.update("PRAGMA encoding = \"UTF-8\";");
+			createConnection(id);
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
 		if (numberOfTables() == 0) {
 			create_tables();
+		}
+	}
+
+	public void createConnection(final int id) {
+		try {
+			Class.forName("org.sqlite.JDBC");
+			this.connection = DriverManager.getConnection("jdbc:sqlite:" + Constants.DATABASE_FILE_PATH.replace("#", Integer.toString(id)));
+			this.update("PRAGMA encoding = \"UTF-8\";");
+		} catch (Exception e) {
+			e.printStackTrace();
 		}
 	}
 

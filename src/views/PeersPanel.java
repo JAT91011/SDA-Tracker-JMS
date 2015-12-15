@@ -6,14 +6,20 @@ import java.awt.Font;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.awt.Insets;
+import java.util.Map;
 import java.util.Observable;
 import java.util.Observer;
+import java.util.concurrent.ConcurrentHashMap;
 
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JSplitPane;
 import javax.swing.JTable;
 import javax.swing.table.DefaultTableModel;
+
+import entities.Peer;
+import models.PeersManager;
+import utilities.ErrorsLog;
 
 public class PeersPanel extends JPanel implements Observer {
 
@@ -22,6 +28,7 @@ public class PeersPanel extends JPanel implements Observer {
 	private final DefaultTableModel	modelTablePeers;
 	private JTable					tableContent;
 	private DefaultTableModel		modelTableContent;
+	private String[]				header;
 
 	public PeersPanel() {
 		setBackground(new Color(255, 218, 185));
@@ -32,10 +39,12 @@ public class PeersPanel extends JPanel implements Observer {
 		gridBagLayout.rowWeights = new double[] { 1.0, Double.MIN_VALUE };
 		setLayout(gridBagLayout);
 
-		final String[] headerPeers = { "ID", "IP", "Puerto" };
-
+		header = new String[3];
+		header[0] = "ID";
+		header[1] = "IP";
+		header[2] = "Port";
 		modelTablePeers = new DefaultTableModel();
-		modelTablePeers.setDataVector(new String[1][headerPeers.length], headerPeers);
+		modelTablePeers.setDataVector(new String[1][header.length], header);
 
 		final String[] headerContent = { "ID", "INFO_HASH", "Estado", "Completado" };
 
@@ -91,10 +100,34 @@ public class PeersPanel extends JPanel implements Observer {
 		tableContent.setRowHeight(30);
 		tableContent.getTableHeader().setFont(new Font("Arial", Font.PLAIN, 15));
 		scrollPaneContent.setViewportView(tableContent);
+
+		PeersManager.getInstance().addObserver(this);
 	}
 
 	@Override
-	public void update(Observable o, Object arg) {
+	public synchronized void update(Observable o, Object arg) {
+		if (o == PeersManager.getInstance()) {
+			try {
+				ConcurrentHashMap<Integer, Peer> peers = PeersManager.getInstance().getPeers();
 
+				if (peers.size() != tablePeers.getRowCount()) {
+					modelTablePeers.setDataVector(new String[peers.size()][header.length], header);
+				}
+
+				int i = 0;
+				for (Map.Entry<Integer, Peer> entry : peers.entrySet()) {
+					tablePeers.getModel().setValueAt(Integer.toString(entry.getValue().getId()), i, 0);
+					tablePeers.getModel().setValueAt(entry.getValue().getIp(), i, 1);
+					tablePeers.getModel().setValueAt(Long.toString(entry.getValue().getPort()), i, 2);
+
+					i++;
+				}
+
+			} catch (Exception e) {
+				ErrorsLog.getInstance().writeLog(this.getClass().getName(), new Object() {
+				}.getClass().getEnclosingMethod().getName(), e.toString());
+				e.printStackTrace();
+			}
+		}
 	}
 }

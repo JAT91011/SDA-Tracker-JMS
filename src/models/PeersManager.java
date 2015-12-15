@@ -5,37 +5,45 @@ import java.net.DatagramPacket;
 import java.net.InetAddress;
 import java.net.MulticastSocket;
 import java.nio.ByteBuffer;
+import java.sql.SQLException;
 import java.util.Arrays;
 import java.util.Observable;
+import java.util.Vector;
+import java.util.concurrent.ConcurrentHashMap;
 
+import entities.Peer;
+import utilities.Database;
 import utilities.ErrorsLog;
 
 public class PeersManager extends Observable implements Runnable {
 
-	private static PeersManager	instance;
+	private static PeersManager					instance;
 
-	private static int			OK						= 0;
-	private static int			NEW_CONNECTION			= 1;
-	private static int			ANNOUNCE				= 2;
-	private static int			ANNOUNCE_RESPONSE		= 3;
-	private static int			ERR						= 99;
+	private static int							OK						= 0;
+	private static int							NEW_CONNECTION			= 1;
+	private static int							ANNOUNCE				= 2;
+	private static int							ANNOUNCE_RESPONSE		= 3;
+	private static int							ERR						= 99;
 
-	private static int			DATAGRAM_CONTENT_LENGTH	= 2032;
-	private static int			DATAGRAM_HEADER_LENGTH	= 16;
+	private static int							DATAGRAM_CONTENT_LENGTH	= 2032;
+	private static int							DATAGRAM_HEADER_LENGTH	= 16;
 
-	private String				ip;
-	private int					port;
+	private String								ip;
+	private int									port;
 
-	private Thread				readingThread;
-	private boolean				enable;
+	private Thread								readingThread;
+	private boolean								enable;
 
-	private MulticastSocket		socket;
-	private InetAddress			group;
-	private DatagramPacket		messageIn;
-	private byte[]				buffer;
+	private MulticastSocket						socket;
+	private InetAddress							group;
+	private DatagramPacket						messageIn;
+	private byte[]								buffer;
+
+	private ConcurrentHashMap<Integer, Peer>	peers;
 
 	private PeersManager() {
 		this.enable = false;
+		this.peers = new ConcurrentHashMap<Integer, Peer>();
 	}
 
 	public void start(final String ip, final int port) {
@@ -77,15 +85,77 @@ public class PeersManager extends Observable implements Runnable {
 	 * @param data
 	 *            Datagrama a enviar
 	 */
-	public synchronized void sendData(byte[] data) {
+	public synchronized void sendData(byte[] data, final InetAddress ip, final int port) {
 		try {
-			DatagramPacket message = new DatagramPacket(data, data.length, group, this.port);
+			DatagramPacket message = new DatagramPacket(data, data.length, ip, port);
 			socket.send(message);
 		} catch (IOException e) {
 			ErrorsLog.getInstance().writeLog(this.getClass().getName(), new Object() {
 			}.getClass().getEnclosingMethod().getName(), e.toString());
 			e.printStackTrace();
 		}
+	}
+
+	/**
+	 * Funcion para notificar que se ha desconectado un peer
+	 * 
+	 * @param peer
+	 *            Peer que se ha desconectado
+	 */
+	public synchronized void removePeer(int id) {
+		try {
+			this.peers.remove(id);
+			setChanged();
+			notifyObservers();
+		} catch (Exception ex) {
+			ErrorsLog.getInstance().writeLog(this.getClass().getName(), new Object() {
+			}.getClass().getEnclosingMethod().getName(), ex.toString());
+			ex.printStackTrace();
+		}
+	}
+
+	/**
+	 * Funcion para notificar que se ha desconectado el peer operativo
+	 * 
+	 * @param peer
+	 *            Peer que se ha desconectado
+	 */
+	public synchronized void removePeers() {
+		try {
+			this.peers.clear();
+			setChanged();
+			notifyObservers();
+		} catch (Exception ex) {
+			ErrorsLog.getInstance().writeLog(this.getClass().getName(), new Object() {
+			}.getClass().getEnclosingMethod().getName(), ex.toString());
+			ex.printStackTrace();
+		}
+	}
+
+	/**
+	 * Funcion para notificar que se han alterado los datos de un peer
+	 * 
+	 * @param peer
+	 */
+	public synchronized void setPeer(Peer peer) {
+		try {
+			this.peers.put(peer.getId(), peer);
+			setChanged();
+			notifyObservers();
+		} catch (Exception ex) {
+			ErrorsLog.getInstance().writeLog(this.getClass().getName(), new Object() {
+			}.getClass().getEnclosingMethod().getName(), ex.toString());
+			ex.printStackTrace();
+		}
+	}
+
+	/**
+	 * Funcion para obtener los peers activos
+	 * 
+	 * @return Vector con los peers activos
+	 */
+	public synchronized ConcurrentHashMap<Integer, Peer> getPeers() {
+		return instance.peers;
 	}
 
 	/**
@@ -177,7 +247,7 @@ public class PeersManager extends Observable implements Runnable {
 		return datagrams;
 	}
 
-	public void processData(final byte[] data) {
+	public void processData(final byte[] data, final InetAddress ip, final int port) {
 		try {
 			int code = ByteBuffer.wrap(Arrays.copyOfRange(data, 0, 4)).getInt();
 			System.out.println("Codigo recibido: " + code);
@@ -186,7 +256,11 @@ public class PeersManager extends Observable implements Runnable {
 					break;
 
 				case 1: // NEW_CONNECTION
-					sendData(createDatagram(OK, null)[0]);
+					if (TrackersManager.getInstance().getCurrentTracker().isMaster()) {
+						if (addPeer(ip.getHostAddress(), port)) {
+							sendData(createDatagram(OK, null)[0], ip, port);
+						}
+					}
 					break;
 
 				case 2: // ANNOUNCE
@@ -205,6 +279,45 @@ public class PeersManager extends Observable implements Runnable {
 		// System.out.println("Datos recibidos: " + Arrays.toString(data));
 	}
 
+	/**
+	 * Funcion para notificar que se ha insertado un nuevo peer
+	 */
+	private boolean addPeer(final String ip, final int port) {
+		try {
+			if (Database.getInstance().count("PEERS", "ip = '" + ip + "' AND port = " + Integer.toString(port)) == 0) {
+				Database.getInstance().update("INSERT INTO PEERS (ip, port) VALUES ('" + ip + "', " + Integer.toString(port) + ")");
+				int id = Database.getInstance().consult("SELECT id FROM PEERS WHERE ip = '" + ip + "' AND port = " + Integer.toString(port))
+						.getInt("id");
+				this.peers.put(id, new Peer(id, ip, port));
+				setChanged();
+				notifyObservers();
+				return true;
+			}
+		} catch (SQLException e) {
+			ErrorsLog.getInstance().writeLog(this.getClass().getName(), new Object() {
+			}.getClass().getEnclosingMethod().getName(), e.toString());
+			e.printStackTrace();
+		}
+		return false;
+	}
+
+	/**
+	 * Funcion para notificar que se han insertado todos los peers
+	 */
+	public void addAllPeers(final Vector<Peer> peers) {
+		try {
+			for (Peer p : peers) {
+				this.peers.put(p.getId(), p);
+			}
+			setChanged();
+			notifyObservers();
+		} catch (Exception e) {
+			ErrorsLog.getInstance().writeLog(this.getClass().getName(), new Object() {
+			}.getClass().getEnclosingMethod().getName(), e.toString());
+			e.printStackTrace();
+		}
+	}
+
 	@Override
 	public void run() {
 		try {
@@ -213,7 +326,8 @@ public class PeersManager extends Observable implements Runnable {
 				this.messageIn = new DatagramPacket(buffer, buffer.length);
 
 				this.socket.receive(messageIn);
-				processData(this.buffer);
+				System.out.println("Cliente: " + messageIn.getAddress().getHostAddress() + " " + messageIn.getPort());
+				processData(this.buffer, messageIn.getAddress(), messageIn.getPort());
 			}
 		} catch (Exception e) {
 			ErrorsLog.getInstance().writeLog(this.getClass().getName(), new Object() {
