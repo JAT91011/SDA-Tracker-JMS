@@ -6,11 +6,14 @@ import java.net.InetAddress;
 import java.net.MulticastSocket;
 import java.nio.ByteBuffer;
 import java.sql.SQLException;
-import java.util.Arrays;
 import java.util.Observable;
 import java.util.Vector;
 import java.util.concurrent.ConcurrentHashMap;
 
+import bitTorrent.tracker.protocol.udp.messages.BitTorrentUDPMessage;
+import bitTorrent.tracker.protocol.udp.messages.BitTorrentUDPMessage.Action;
+import bitTorrent.tracker.protocol.udp.messages.ConnectRequest;
+import bitTorrent.tracker.protocol.udp.messages.ConnectResponse;
 import entities.Peer;
 import utilities.Database;
 import utilities.ErrorsLog;
@@ -82,13 +85,13 @@ public class PeersManager extends Observable implements Runnable {
 	/**
 	 * Metodo para enviar un datagrama
 	 * 
-	 * @param data
-	 *            Datagrama a enviar
+	 * @param message
+	 *            Mensaje a enviar
 	 */
-	public synchronized void sendData(byte[] data, final InetAddress ip, final int port) {
+	public synchronized void sendData(final BitTorrentUDPMessage message, final InetAddress ip, final int port) {
 		try {
-			DatagramPacket message = new DatagramPacket(data, data.length, ip, port);
-			socket.send(message);
+			DatagramPacket packet = new DatagramPacket(message.getBytes(), message.getBytes().length, ip, port);
+			socket.send(packet);
 		} catch (IOException e) {
 			ErrorsLog.getInstance().writeLog(this.getClass().getName(), new Object() {
 			}.getClass().getEnclosingMethod().getName(), e.toString());
@@ -158,117 +161,36 @@ public class PeersManager extends Observable implements Runnable {
 		return instance.peers;
 	}
 
-	/**
-	 * Se crea la trama de datos para enviar con el formato correcto
-	 * 
-	 * @param codigo
-	 *            Codigo de la trama
-	 * @param datos
-	 *            Datos que se van a enviar
-	 * @return Array con la trama formateada se utiliza un array bidimensional
-	 *         dado que la trama puede estar particionada
-	 */
-	public byte[][] createDatagram(int code, byte[] data) {
-		byte[][] datagrams = null;
+	public void processData(final DatagramPacket messageIn, final InetAddress ip, final int port) {
 		try {
-			int length = data != null ? data.length : 0;
-			int partitions = 0;
-			if (length < (DATAGRAM_CONTENT_LENGTH)) {
-				partitions = 1;
-			} else {
-				partitions = length / DATAGRAM_CONTENT_LENGTH;
-				if (length % DATAGRAM_CONTENT_LENGTH > 0) {
-					partitions++;
-				}
-			}
-
-			datagrams = new byte[partitions][DATAGRAM_CONTENT_LENGTH + DATAGRAM_HEADER_LENGTH];
-			for (int i = 0; i < partitions; i++) {
-
-				// CODE
-				byte[] codeArray = ByteBuffer.allocate(4).putInt(code).array();
-				datagrams[i][0] = codeArray[0];
-				datagrams[i][1] = codeArray[1];
-				datagrams[i][2] = codeArray[2];
-				datagrams[i][3] = codeArray[3];
-
-				// PARTITIONS
-				byte[] codePartitions = ByteBuffer.allocate(4).putInt(partitions).array();
-				datagrams[i][4] = codePartitions[0];
-				datagrams[i][5] = codePartitions[1];
-				datagrams[i][6] = codePartitions[2];
-				datagrams[i][7] = codePartitions[3];
-
-				// CURRENT PARTITION
-				byte[] codeCurrentPartition = ByteBuffer.allocate(4).putInt(i + 1).array();
-				datagrams[i][8] = codeCurrentPartition[0];
-				datagrams[i][9] = codeCurrentPartition[1];
-				datagrams[i][10] = codeCurrentPartition[2];
-				datagrams[i][11] = codeCurrentPartition[3];
-
-				// LENGTH
-				if (data != null) {
-					if (i + 1 == partitions) {
-						byte[] lengthArray = ByteBuffer.allocate(4).putInt(length).array();
-						datagrams[i][12] = lengthArray[0];
-						datagrams[i][13] = lengthArray[1];
-						datagrams[i][14] = lengthArray[2];
-						datagrams[i][15] = lengthArray[3];
-
-						for (int j = 0; j < length - (DATAGRAM_CONTENT_LENGTH * i); j++) {
-							datagrams[i][DATAGRAM_HEADER_LENGTH + j] = data[j + (DATAGRAM_CONTENT_LENGTH * i)];
-						}
-					} else {
-						byte[] lengthArray = ByteBuffer.allocate(4).putInt(DATAGRAM_CONTENT_LENGTH).array();
-						datagrams[i][12] = lengthArray[0];
-						datagrams[i][13] = lengthArray[1];
-						datagrams[i][14] = lengthArray[2];
-						datagrams[i][15] = lengthArray[3];
-
-						for (int j = DATAGRAM_CONTENT_LENGTH * i; j < DATAGRAM_CONTENT_LENGTH * (i + 1); j++) {
-							datagrams[i][DATAGRAM_HEADER_LENGTH + (j - (i * DATAGRAM_CONTENT_LENGTH))] = data[j];
-						}
-					}
-				}
-			}
-
-			// System.out.println("Datagrama creado");
-			// for (int i = 0; i < partitions; i++) {
-			// System.out.println("Datagrama " + (i + 1) + ": " +
-			// Arrays.toString(datagrams[i]));
-			// }
-
-		} catch (Exception e) {
-			ErrorsLog.getInstance().writeLog(this.getClass().getName(), new Object() {
-			}.getClass().getEnclosingMethod().getName(), e.toString());
-			e.printStackTrace();
-		}
-
-		return datagrams;
-	}
-
-	public void processData(final byte[] data, final InetAddress ip, final int port) {
-		try {
-			int code = ByteBuffer.wrap(Arrays.copyOfRange(data, 0, 4)).getInt();
-			System.out.println("Codigo recibido: " + code);
-			switch (code) {
-				case 0: // OK
+			ByteBuffer bufferReceive = ByteBuffer.wrap(messageIn.getData());
+			Action action = Action.valueOf(bufferReceive.getInt(8));
+			switch (action) {
+				case ANNOUNCE:
+					System.out.println("Announce recibido");
 					break;
 
-				case 1: // NEW_CONNECTION
+				case CONNECT:
+					System.out.println("Connect recibido");
 					if (TrackersManager.getInstance().getCurrentTracker().isMaster()) {
 						if (addPeer(ip.getHostAddress(), port)) {
-							sendData(createDatagram(OK, null)[0], ip, port);
+							ConnectRequest req = ConnectRequest.parse(messageIn.getData());
+							ConnectResponse response = new ConnectResponse();
+							response.setTransactionId(req.getTransactionId());
+							response.setConnectionId(req.getConnectionId());
+							sendData(response, ip, port);
 						}
+					} else {
+						addPeer(ip.getHostAddress(), port);
 					}
 					break;
-
-				case 2: // ANNOUNCE
-
+				case ERROR:
+					System.out.println("ERROR");
 					break;
-
-				case 99: // ERR
-
+				case SCRAPE:
+					System.out.println("SCRAPE");
+					break;
+				default:
 					break;
 			}
 		} catch (Exception ex) {
@@ -327,7 +249,7 @@ public class PeersManager extends Observable implements Runnable {
 
 				this.socket.receive(messageIn);
 				System.out.println("Cliente: " + messageIn.getAddress().getHostAddress() + " " + messageIn.getPort());
-				processData(this.buffer, messageIn.getAddress(), messageIn.getPort());
+				processData(this.messageIn, messageIn.getAddress(), messageIn.getPort());
 			}
 		} catch (Exception e) {
 			ErrorsLog.getInstance().writeLog(this.getClass().getName(), new Object() {
