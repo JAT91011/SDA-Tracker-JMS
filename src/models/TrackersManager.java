@@ -46,8 +46,7 @@ import utilities.ErrorsLog;
 import views.Window;
 
 /**
- * Implementa la funcionalidad especifica del protocolo UDP de un tracker
- * bitTorrent.
+ * Implementa la funcionalidad especifica de un tracker bitTorrent.
  */
 
 public class TrackersManager extends Observable implements MessageListener {

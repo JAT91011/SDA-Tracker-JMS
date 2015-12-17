@@ -6,14 +6,19 @@ import java.net.InetAddress;
 import java.net.MulticastSocket;
 import java.nio.ByteBuffer;
 import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Observable;
 import java.util.Vector;
 import java.util.concurrent.ConcurrentHashMap;
 
+import bitTorrent.tracker.protocol.udp.messages.AnnounceRequest;
+import bitTorrent.tracker.protocol.udp.messages.AnnounceResponse;
 import bitTorrent.tracker.protocol.udp.messages.BitTorrentUDPMessage;
 import bitTorrent.tracker.protocol.udp.messages.BitTorrentUDPMessage.Action;
 import bitTorrent.tracker.protocol.udp.messages.ConnectRequest;
 import bitTorrent.tracker.protocol.udp.messages.ConnectResponse;
+import bitTorrent.tracker.protocol.udp.messages.PeerInfo;
 import entities.Peer;
 import utilities.Database;
 import utilities.ErrorsLog;
@@ -22,17 +27,8 @@ public class PeersManager extends Observable implements Runnable {
 
 	private static PeersManager					instance;
 
-	private static int							OK						= 0;
-	private static int							NEW_CONNECTION			= 1;
-	private static int							ANNOUNCE				= 2;
-	private static int							ANNOUNCE_RESPONSE		= 3;
-	private static int							ERR						= 99;
-
-	private static int							DATAGRAM_CONTENT_LENGTH	= 2032;
-	private static int							DATAGRAM_HEADER_LENGTH	= 16;
-
-	private String								ip;
-	private int									port;
+	private static int							DATAGRAM_LENGTH	= 2048;
+	private static int							INTERVAL		= 1000;
 
 	private Thread								readingThread;
 	private boolean								enable;
@@ -51,11 +47,8 @@ public class PeersManager extends Observable implements Runnable {
 
 	public void start(final String ip, final int port) {
 		try {
-			this.ip = ip;
-			this.port = port;
-
 			this.socket = new MulticastSocket(port);
-			this.group = InetAddress.getByName(this.ip);
+			this.group = InetAddress.getByName(ip);
 			this.socket.joinGroup(group);
 			this.enable = true;
 
@@ -168,17 +161,28 @@ public class PeersManager extends Observable implements Runnable {
 			switch (action) {
 				case ANNOUNCE:
 					System.out.println("Announce recibido");
+					AnnounceRequest announceRequest = AnnounceRequest.parse(messageIn.getData());
+					AnnounceResponse announceResponse = new AnnounceResponse();
+					announceResponse.setTransactionId(announceRequest.getTransactionId());
+					announceResponse.setInterval(INTERVAL);
+					announceResponse.setLeechers(0);
+					announceResponse.setSeeders(1);
+					List<PeerInfo> lPeerInfo = new ArrayList<>();
+					announceResponse.setPeers(lPeerInfo);
+					PeerInfo p = new PeerInfo();
+					sendData(announceResponse, ip, port);
+
 					break;
 
 				case CONNECT:
 					System.out.println("Connect recibido");
 					if (TrackersManager.getInstance().getCurrentTracker().isMaster()) {
 						if (addPeer(ip.getHostAddress(), port)) {
-							ConnectRequest req = ConnectRequest.parse(messageIn.getData());
-							ConnectResponse response = new ConnectResponse();
-							response.setTransactionId(req.getTransactionId());
-							response.setConnectionId(req.getConnectionId());
-							sendData(response, ip, port);
+							ConnectRequest connectRequest = ConnectRequest.parse(messageIn.getData());
+							ConnectResponse connectResponse = new ConnectResponse();
+							connectResponse.setTransactionId(connectRequest.getTransactionId());
+							connectResponse.setConnectionId(connectRequest.getConnectionId());
+							sendData(connectResponse, ip, port);
 						}
 					} else {
 						addPeer(ip.getHostAddress(), port);
@@ -198,7 +202,6 @@ public class PeersManager extends Observable implements Runnable {
 			}.getClass().getEnclosingMethod().getName(), ex.toString());
 			ex.printStackTrace();
 		}
-		// System.out.println("Datos recibidos: " + Arrays.toString(data));
 	}
 
 	/**
@@ -244,7 +247,7 @@ public class PeersManager extends Observable implements Runnable {
 	public void run() {
 		try {
 			while (this.enable) {
-				this.buffer = new byte[DATAGRAM_CONTENT_LENGTH + DATAGRAM_HEADER_LENGTH];
+				this.buffer = new byte[DATAGRAM_LENGTH];
 				this.messageIn = new DatagramPacket(buffer, buffer.length);
 
 				this.socket.receive(messageIn);
