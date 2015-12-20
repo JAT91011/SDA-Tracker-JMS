@@ -169,7 +169,6 @@ public class PeersManager extends Observable implements Runnable {
 					announceResponse.setSeeders(1);
 					List<PeerInfo> lPeerInfo = new ArrayList<>();
 					announceResponse.setPeers(lPeerInfo);
-					PeerInfo p = new PeerInfo();
 					sendData(announceResponse, ip, port);
 
 					break;
