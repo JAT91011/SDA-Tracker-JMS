@@ -1,1 +1,5 @@
 /bin/
+/data/databases/
+/data/errors/
+/data/config.properties
+/lib/
