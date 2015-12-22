@@ -20,3 +20,29 @@ CREATE TABLE PEER_CONTENT (
 	"percent" INTEGER NOT NULL,
 	PRIMARY KEY (id_peer, id_content)
 );
+
+--- CREATE SOME TEST CONTENTS ---
+--- Star Wars Episodio 1 (La amenaza fantasma).avi ---
+INSERT INTO CONTENTS (id, hash) VALUES (1, '8AF907011ABCBCC7FA234642FBBC56EF25F77914');
+--- Star Wars Episodio 2 (El ataque de los clones).avi ---
+INSERT INTO CONTENTS (id, hash) VALUES (2, '41159F565E0CF606394ED3D251617FA8DEB1C2CF');
+--- Star Wars Episodio 3 (La venganza de los Sith).avi ---
+INSERT INTO CONTENTS (id, hash) VALUES (3, 'BA80C5863DCF4F2F4884A365699674160B217791');
+
+--- CREATE SOME TEST PEERS ---
+INSERT INTO PEERS (id, ip, port) VALUES (1, '192.168.1.1', 1000);
+INSERT INTO PEERS (id, ip, port) VALUES (2, '192.168.1.2', 2000);
+INSERT INTO PEERS (id, ip, port) VALUES (3, '192.168.1.3', 3000);
+
+--- CREATE RELATION WITHIN PEERS AND CONTENTS ---
+INSERT INTO PEER_CONTENT (id_peer, id_content, percent) VALUES (1, 1, 30);
+INSERT INTO PEER_CONTENT (id_peer, id_content, percent) VALUES (1, 3, 90);
+
+INSERT INTO PEER_CONTENT (id_peer, id_content, percent) VALUES (2, 1, 20);
+INSERT INTO PEER_CONTENT (id_peer, id_content, percent) VALUES (2, 2, 50);
+INSERT INTO PEER_CONTENT (id_peer, id_content, percent) VALUES (2, 3, 0);
+
+INSERT INTO PEER_CONTENT (id_peer, id_content, percent) VALUES (3, 1, 0);
+INSERT INTO PEER_CONTENT (id_peer, id_content, percent) VALUES (3, 2, 78);
+INSERT INTO PEER_CONTENT (id_peer, id_content, percent) VALUES (3, 3, 13);
+

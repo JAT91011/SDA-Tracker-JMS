@@ -5,6 +5,7 @@ import java.net.DatagramPacket;
 import java.net.InetAddress;
 import java.net.MulticastSocket;
 import java.nio.ByteBuffer;
+import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
@@ -19,6 +20,7 @@ import bitTorrent.tracker.protocol.udp.messages.BitTorrentUDPMessage.Action;
 import bitTorrent.tracker.protocol.udp.messages.ConnectRequest;
 import bitTorrent.tracker.protocol.udp.messages.ConnectResponse;
 import bitTorrent.tracker.protocol.udp.messages.PeerInfo;
+import bitTorrent.util.ByteUtils;
 import entities.Peer;
 import utilities.Database;
 import utilities.ErrorsLog;
@@ -162,12 +164,32 @@ public class PeersManager extends Observable implements Runnable {
 				case ANNOUNCE:
 					System.out.println("Announce recibido");
 					AnnounceRequest announceRequest = AnnounceRequest.parse(messageIn.getData());
+
+					ResultSet rs = Database.getInstance().consult(
+							"SELECT P.ip, P.port, PC.percent FROM PEERS P INNER JOIN PEER_CONTENT PC ON P.id = PC.id_peer INNER JOIN CONTENTS C ON PC.id_content = C.id WHERE C.hash = '"
+									+ announceRequest.getInfoHash() + "'");
+					int leechers = 0;
+					int seeders = 0;
+					List<PeerInfo> lPeerInfo = new ArrayList<>();
+					while (rs.next()) {
+						if (!ip.equals(rs.getString("ip"))) {
+							PeerInfo peer = new PeerInfo();
+							peer.setIpAddress(ByteUtils.arrayToInt(InetAddress.getByName(rs.getString("ip")).getAddress()));
+							peer.setPort(rs.getInt("port"));
+							if (rs.getInt("percent") > 0) {
+								seeders++;
+							} else {
+								leechers++;
+							}
+							lPeerInfo.add(peer);
+						}
+					}
+
 					AnnounceResponse announceResponse = new AnnounceResponse();
 					announceResponse.setTransactionId(announceRequest.getTransactionId());
 					announceResponse.setInterval(INTERVAL);
-					announceResponse.setLeechers(0);
-					announceResponse.setSeeders(1);
-					List<PeerInfo> lPeerInfo = new ArrayList<>();
+					announceResponse.setLeechers(leechers);
+					announceResponse.setSeeders(seeders);
 					announceResponse.setPeers(lPeerInfo);
 					sendData(announceResponse, ip, port);
 
