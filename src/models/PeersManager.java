@@ -173,13 +173,16 @@ public class PeersManager extends Observable implements Runnable {
 					boolean exist = Database.getInstance().count("CONTENTS", "hash = '" + announceRequest.getInfoHash() + "'") != 0;
 					if (!exist) {
 						addContent(ip.getHostAddress(), port, announceRequest.getInfoHash());
+					} else {
+						addRelation(ip.getHostAddress(), port, announceRequest.getInfoHash());
 					}
 
 					ResultSet rs = Database.getInstance().consult(
 							"SELECT P.ip, P.port, PC.percent FROM PEERS P INNER JOIN PEER_CONTENT PC ON P.id = PC.id_peer INNER JOIN CONTENTS C ON PC.id_content = C.id WHERE C.hash = '"
 									+ announceRequest.getInfoHash() + "'");
+
 					while (rs.next()) {
-						if (!ip.equals(rs.getString("ip"))) {
+						if (!rs.getString("ip").equals(ip.getHostAddress()) || rs.getInt("port") != port) {
 							PeerInfo peer = new PeerInfo();
 							peer.setIpAddress(ByteUtils.arrayToInt(InetAddress.getByName(rs.getString("ip")).getAddress()));
 							peer.setPort(rs.getInt("port"));
@@ -205,13 +208,12 @@ public class PeersManager extends Observable implements Runnable {
 				case CONNECT:
 					System.out.println("Connect recibido");
 					if (TrackersManager.getInstance().getCurrentTracker().isMaster()) {
-						if (addPeer(ip.getHostAddress(), port)) {
-							ConnectRequest connectRequest = ConnectRequest.parse(messageIn.getData());
-							ConnectResponse connectResponse = new ConnectResponse();
-							connectResponse.setTransactionId(connectRequest.getTransactionId());
-							connectResponse.setConnectionId(connectRequest.getConnectionId());
-							sendData(connectResponse, ip, port);
-						}
+						addPeer(ip.getHostAddress(), port);
+						ConnectRequest connectRequest = ConnectRequest.parse(messageIn.getData());
+						ConnectResponse connectResponse = new ConnectResponse();
+						connectResponse.setTransactionId(connectRequest.getTransactionId());
+						connectResponse.setConnectionId(connectRequest.getConnectionId());
+						sendData(connectResponse, ip, port);
 					} else {
 						addPeer(ip.getHostAddress(), port);
 					}
@@ -271,14 +273,48 @@ public class PeersManager extends Observable implements Runnable {
 				for (Entry<Integer, Peer> entry : this.peers.entrySet()) {
 					if (entry.getValue().getIp().equals(ip) && entry.getValue().getPort() == port) {
 						idPeer = entry.getKey();
+						break;
 					}
 				}
 
 				if (idPeer > -1 && idContent != 0) {
 					Database.getInstance().update("INSERT INTO PEER_CONTENT (id_peer, id_content, percent) VALUES (" + Integer.toString(idPeer) + ","
-							+ Integer.toString(idContent) + ", 0");
+							+ Integer.toString(idContent) + ", 0)");
 				}
 
+				setChanged();
+				notifyObservers();
+				return true;
+			}
+		} catch (SQLException e) {
+			ErrorsLog.getInstance().writeLog(this.getClass().getName(), new Object() {
+			}.getClass().getEnclosingMethod().getName(), e.toString());
+			e.printStackTrace();
+		}
+		return false;
+	}
+
+	/**
+	 * Funcion para notificar que se ha insertado una nueva relacion
+	 */
+	private boolean addRelation(final String ip, final int port, final String info_hash) {
+		try {
+			if (Database.getInstance().count("CONTENTS", "hash = '" + info_hash + "'") != 0) {
+				int idContent = Database.getInstance().consult("SELECT id FROM CONTENTS WHERE hash = '" + info_hash + "'").getInt("id");
+				int idPeer = 0;
+				for (Entry<Integer, Peer> entry : this.peers.entrySet()) {
+					if (entry.getValue().getIp().equals(ip) && entry.getValue().getPort() == port) {
+						idPeer = entry.getKey();
+						break;
+					}
+				}
+				if (idPeer != 0 && idContent != 0) {
+					System.out.println(Database.getInstance().count("PEER_CONTENT", "id_peer = " + idPeer + " AND id_content = " + idContent));
+					if (Database.getInstance().count("PEER_CONTENT", "id_peer = " + idPeer + " AND id_content = " + idContent) == 0) {
+						Database.getInstance()
+								.update("INSERT INTO PEER_CONTENT (id_peer, id_content, percent) VALUES (" + idPeer + "," + idContent + ", 0)");
+					}
+				}
 				setChanged();
 				notifyObservers();
 				return true;
