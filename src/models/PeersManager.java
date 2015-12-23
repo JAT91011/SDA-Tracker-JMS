@@ -9,6 +9,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map.Entry;
 import java.util.Observable;
 import java.util.Vector;
 import java.util.concurrent.ConcurrentHashMap;
@@ -163,14 +164,20 @@ public class PeersManager extends Observable implements Runnable {
 			switch (action) {
 				case ANNOUNCE:
 					System.out.println("Announce recibido");
+
+					int leechers = 0;
+					int seeders = 0;
+					List<PeerInfo> lPeerInfo = new ArrayList<>();
+
 					AnnounceRequest announceRequest = AnnounceRequest.parse(messageIn.getData());
+					boolean exist = Database.getInstance().count("CONTENTS", "hash = '" + announceRequest.getInfoHash() + "'") != 0;
+					if (!exist) {
+						addContent(ip.getHostAddress(), port, announceRequest.getInfoHash());
+					}
 
 					ResultSet rs = Database.getInstance().consult(
 							"SELECT P.ip, P.port, PC.percent FROM PEERS P INNER JOIN PEER_CONTENT PC ON P.id = PC.id_peer INNER JOIN CONTENTS C ON PC.id_content = C.id WHERE C.hash = '"
 									+ announceRequest.getInfoHash() + "'");
-					int leechers = 0;
-					int seeders = 0;
-					List<PeerInfo> lPeerInfo = new ArrayList<>();
 					while (rs.next()) {
 						if (!ip.equals(rs.getString("ip"))) {
 							PeerInfo peer = new PeerInfo();
@@ -218,11 +225,16 @@ public class PeersManager extends Observable implements Runnable {
 				default:
 					break;
 			}
-		} catch (Exception ex) {
+		} catch (
+
+		Exception ex)
+
+		{
 			ErrorsLog.getInstance().writeLog(this.getClass().getName(), new Object() {
 			}.getClass().getEnclosingMethod().getName(), ex.toString());
 			ex.printStackTrace();
 		}
+
 	}
 
 	/**
@@ -235,6 +247,38 @@ public class PeersManager extends Observable implements Runnable {
 				int id = Database.getInstance().consult("SELECT id FROM PEERS WHERE ip = '" + ip + "' AND port = " + Integer.toString(port))
 						.getInt("id");
 				this.peers.put(id, new Peer(id, ip, port));
+				setChanged();
+				notifyObservers();
+				return true;
+			}
+		} catch (SQLException e) {
+			ErrorsLog.getInstance().writeLog(this.getClass().getName(), new Object() {
+			}.getClass().getEnclosingMethod().getName(), e.toString());
+			e.printStackTrace();
+		}
+		return false;
+	}
+
+	/**
+	 * Funcion para notificar que se ha insertado un nuevo contenido
+	 */
+	private boolean addContent(final String ip, final int port, final String info_hash) {
+		try {
+			if (Database.getInstance().count("CONTENTS", "hash = '" + info_hash + "'") == 0) {
+				Database.getInstance().update("INSERT INTO CONTENTS (hash) VALUES ('" + info_hash + "')");
+				int idContent = Database.getInstance().consult("SELECT id FROM CONTENTS WHERE hash = '" + info_hash + "'").getInt("id");
+				int idPeer = -1;
+				for (Entry<Integer, Peer> entry : this.peers.entrySet()) {
+					if (entry.getValue().getIp().equals(ip) && entry.getValue().getPort() == port) {
+						idPeer = entry.getKey();
+					}
+				}
+
+				if (idPeer > -1 && idContent != 0) {
+					Database.getInstance().update("INSERT INTO PEER_CONTENT (id_peer, id_content, percent) VALUES (" + Integer.toString(idPeer) + ","
+							+ Integer.toString(idContent) + ", 0");
+				}
+
 				setChanged();
 				notifyObservers();
 				return true;
