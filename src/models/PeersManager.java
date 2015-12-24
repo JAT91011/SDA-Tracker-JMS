@@ -15,6 +15,7 @@ import java.util.Vector;
 import java.util.concurrent.ConcurrentHashMap;
 
 import bitTorrent.tracker.protocol.udp.messages.AnnounceRequest;
+import bitTorrent.tracker.protocol.udp.messages.AnnounceRequest.Event;
 import bitTorrent.tracker.protocol.udp.messages.AnnounceResponse;
 import bitTorrent.tracker.protocol.udp.messages.BitTorrentUDPMessage;
 import bitTorrent.tracker.protocol.udp.messages.BitTorrentUDPMessage.Action;
@@ -165,46 +166,7 @@ public class PeersManager extends Observable implements Runnable {
 			switch (action) {
 				case ANNOUNCE:
 					System.out.println("Announce recibido");
-
-					int leechers = 0;
-					int seeders = 0;
-					List<PeerInfo> lPeerInfo = new ArrayList<>();
-
-					AnnounceRequest announceRequest = AnnounceRequest.parse(messageIn.getData());
-					System.out.println("HEX: " + announceRequest.getHexInfoHash());
-					boolean exist = Database.getInstance().count("CONTENTS", "hash = '" + announceRequest.getHexInfoHash() + "'") != 0;
-					if (!exist) {
-						addContent(ip.getHostAddress(), port, announceRequest.getHexInfoHash());
-					} else {
-						addRelation(ip.getHostAddress(), port, announceRequest.getHexInfoHash());
-					}
-
-					ResultSet rs = Database.getInstance().consult(
-							"SELECT P.ip, P.port, PC.percent FROM PEERS P INNER JOIN PEER_CONTENT PC ON P.id = PC.id_peer INNER JOIN CONTENTS C ON PC.id_content = C.id WHERE C.hash = '"
-									+ announceRequest.getHexInfoHash() + "'");
-
-					while (rs.next()) {
-						if (!rs.getString("ip").equals(ip.getHostAddress()) || rs.getInt("port") != port) {
-							PeerInfo peer = new PeerInfo();
-							peer.setIpAddress(ByteUtils.arrayToInt(InetAddress.getByName(rs.getString("ip")).getAddress()));
-							peer.setPort(rs.getInt("port"));
-							if (rs.getInt("percent") > 0) {
-								seeders++;
-							} else {
-								leechers++;
-							}
-							lPeerInfo.add(peer);
-						}
-					}
-
-					AnnounceResponse announceResponse = new AnnounceResponse();
-					announceResponse.setTransactionId(announceRequest.getTransactionId());
-					announceResponse.setInterval(INTERVAL);
-					announceResponse.setLeechers(leechers);
-					announceResponse.setSeeders(seeders);
-					announceResponse.setPeers(lPeerInfo);
-					sendData(announceResponse, ip, port);
-
+					onAnnounceRequestReceived(AnnounceRequest.parse(messageIn.getData()), ip, port);
 					break;
 
 				case CONNECT:
@@ -239,6 +201,57 @@ public class PeersManager extends Observable implements Runnable {
 			ex.printStackTrace();
 		}
 
+	}
+
+	private void onAnnounceRequestReceived(final AnnounceRequest announceRequest, final InetAddress ip, final int port) {
+		try {
+			int leechers = 0;
+			int seeders = 0;
+			List<PeerInfo> lPeerInfo = new ArrayList<>();
+			// Esta descargando el contenido
+			if (announceRequest.getEvent() == Event.STARTED) {
+				boolean existContent = Database.getInstance().count("CONTENTS", "hash = '" + announceRequest.getHexInfoHash() + "'") != 0;
+				if (!existContent) {
+					addContent(ip.getHostAddress(), port, announceRequest.getHexInfoHash());
+				} else {
+					addRelation(ip.getHostAddress(), port, announceRequest.getHexInfoHash());
+					long totalSize = announceRequest.getDownloaded() + announceRequest.getLeft();
+					updateDownloaded(ip.getHostAddress(), port, announceRequest.getHexInfoHash(),
+							(int) ((announceRequest.getDownloaded() * 100) / totalSize));
+				}
+			}
+			// Esta compartiendo el contenido
+			else if (announceRequest.getEvent() == Event.COMPLETED) {
+				updateDownloaded(ip.getHostAddress(), port, announceRequest.getHexInfoHash(), 100);
+			}
+
+			ResultSet rs = Database.getInstance().consult(
+					"SELECT P.ip, P.port, PC.percent FROM PEERS P INNER JOIN PEER_CONTENT PC ON P.id = PC.id_peer INNER JOIN CONTENTS C ON PC.id_content = C.id WHERE C.hash = '"
+							+ announceRequest.getHexInfoHash() + "'");
+			while (rs.next()) {
+				if (!rs.getString("ip").equals(ip.getHostAddress()) || rs.getInt("port") != port) {
+					PeerInfo peer = new PeerInfo();
+					peer.setIpAddress(ByteUtils.arrayToInt(InetAddress.getByName(rs.getString("ip")).getAddress()));
+					peer.setPort(rs.getInt("port"));
+					if (rs.getInt("percent") > 0) {
+						seeders++;
+					} else {
+						leechers++;
+					}
+					lPeerInfo.add(peer);
+				}
+			}
+
+			AnnounceResponse announceResponse = new AnnounceResponse();
+			announceResponse.setTransactionId(announceRequest.getTransactionId());
+			announceResponse.setInterval(INTERVAL);
+			announceResponse.setLeechers(leechers);
+			announceResponse.setSeeders(seeders);
+			announceResponse.setPeers(lPeerInfo);
+			sendData(announceResponse, ip, port);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
 	}
 
 	/**
@@ -330,6 +343,36 @@ public class PeersManager extends Observable implements Runnable {
 			e.printStackTrace();
 		}
 		return false;
+	}
+
+	private void updateDownloaded(final String ip, final int port, final String info_hash, final int percent) {
+		try {
+			int idContent = Database.getInstance().consult("SELECT id FROM CONTENTS WHERE hash = '" + info_hash + "'").getInt("id");
+			int idPeer = 0;
+			for (Entry<Integer, Peer> entry : this.peers.entrySet()) {
+				if (entry.getValue().getIp().equals(ip) && entry.getValue().getPort() == port) {
+					idPeer = entry.getKey();
+					for (Content content : entry.getValue().getContents()) {
+						if (content.getInfoHash().equals(info_hash)) {
+							idContent = content.getId();
+							content.setPercent(percent);
+						}
+					}
+					break;
+				}
+			}
+			if (idPeer != 0 && idContent != 0) {
+				Database.getInstance()
+						.update("UPDATE PEER_CONTENT SET percent = " + percent + " WHERE id_peer = " + idPeer + " AND id_content = " + idContent);
+			}
+
+			setChanged();
+			notifyObservers();
+		} catch (Exception e) {
+			ErrorsLog.getInstance().writeLog(this.getClass().getName(), new Object() {
+			}.getClass().getEnclosingMethod().getName(), e.toString());
+			e.printStackTrace();
+		}
 	}
 
 	/**
