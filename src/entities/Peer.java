@@ -7,26 +7,24 @@ public class Peer {
 	private int				id;
 	private String			ip;
 	private int				port;
-	private Vector<String>	hashmapContents;
+	private Vector<Content>	contents;
 
 	public Peer() {
 
 	}
 
 	public Peer(int id, String ip, int port) {
-		super();
 		this.id = id;
 		this.ip = ip;
 		this.port = port;
-		this.hashmapContents = null;
+		this.contents = new Vector<Content>();
 	}
 
-	public Peer(int id, String ip, int port, Vector<String> hashmapContents) {
-		super();
+	public Peer(int id, String ip, int port, Vector<Content> contents) {
 		this.id = id;
 		this.ip = ip;
 		this.port = port;
-		this.hashmapContents = hashmapContents;
+		this.contents = new Vector<Content>();
 	}
 
 	public int getId() {
@@ -41,8 +39,8 @@ public class Peer {
 		return ip;
 	}
 
-	public Vector<String> getHashmapContents() {
-		return hashmapContents;
+	public Vector<Content> getContents() {
+		return contents;
 	}
 
 	public void setIp(String ip) {
@@ -57,7 +55,16 @@ public class Peer {
 		this.port = port;
 	}
 
-	public void setHashmapContents(Vector<String> hashmapContents) {
-		this.hashmapContents = hashmapContents;
+	public void setContents(Vector<Content> contents) {
+		this.contents = contents;
+	}
+
+	public void addContent(Content content) {
+		this.contents.add(content);
+	}
+
+	@Override
+	public String toString() {
+		return "Peer [id=" + id + ", ip=" + ip + ", port=" + port + ", contents=" + contents + "]";
 	}
 }

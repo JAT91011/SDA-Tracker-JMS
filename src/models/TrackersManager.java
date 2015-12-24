@@ -37,6 +37,7 @@ import javax.swing.Timer;
 
 import org.apache.activemq.command.ActiveMQObjectMessage;
 
+import entities.Content;
 import entities.Datagram;
 import entities.Peer;
 import entities.Tracker;
@@ -133,6 +134,7 @@ public class TrackersManager extends Observable implements MessageListener {
 			if (this.currentTracker.isMaster()) {
 				Window.getInstance().setTitle("Tracker [ID: " + this.currentTracker.getId() + "] [Mode: MASTER]");
 				Database.getInstance().createDatabase(this.currentTracker.getId());
+				loadDatabasePeers();
 			} else {
 				Window.getInstance().setTitle("Tracker [ID: " + this.currentTracker.getId() + "] [Mode: SLAVE]");
 			}
@@ -216,15 +218,32 @@ public class TrackersManager extends Observable implements MessageListener {
 					Constants.DATABASE_FILE_PATH.replace("#", Integer.toString(this.currentTracker.getId())));
 			fileOuputStream.write(database);
 			fileOuputStream.close();
+			loadDatabasePeers();
+		} catch (Exception e) {
+			ErrorsLog.getInstance().writeLog(this.getClass().getName(), new Object() {
+			}.getClass().getEnclosingMethod().getName(), e.toString());
+			e.printStackTrace();
+		}
+	}
 
+	public synchronized void loadDatabasePeers() {
+		try {
 			// Carga los peers de la base de datos en memoria
 			Vector<Peer> peers = new Vector<Peer>();
 			Database.getInstance().createConnection(this.currentTracker.getId());
 			ResultSet rs = Database.getInstance().consult("SELECT * FROM PEERS ORDER BY id");
 			while (rs.next()) {
-				peers.add(new Peer(rs.getInt("id"), rs.getString("ip"), rs.getInt("port")));
+				Peer peer = new Peer(rs.getInt("id"), rs.getString("ip"), rs.getInt("port"));
+				ResultSet rs2 = Database.getInstance().consult(
+						"SELECT C.id, C.hash, PC.percent FROM CONTENTS C INNER JOIN PEER_CONTENT PC ON C.id = PC.id_content WHERE PC.id_peer = "
+								+ peer.getId() + " ORDER BY C.id");
+				while (rs2.next()) {
+					peer.addContent(new Content(rs2.getInt("id"), rs2.getString("hash"), rs2.getInt("percent")));
+				}
+				peers.add(peer);
 			}
 			PeersManager.getInstance().addAllPeers(peers);
+
 		} catch (Exception e) {
 			ErrorsLog.getInstance().writeLog(this.getClass().getName(), new Object() {
 			}.getClass().getEnclosingMethod().getName(), e.toString());

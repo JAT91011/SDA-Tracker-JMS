@@ -22,6 +22,7 @@ import bitTorrent.tracker.protocol.udp.messages.ConnectRequest;
 import bitTorrent.tracker.protocol.udp.messages.ConnectResponse;
 import bitTorrent.tracker.protocol.udp.messages.PeerInfo;
 import bitTorrent.util.ByteUtils;
+import entities.Content;
 import entities.Peer;
 import utilities.Database;
 import utilities.ErrorsLog;
@@ -282,6 +283,7 @@ public class PeersManager extends Observable implements Runnable {
 							+ Integer.toString(idContent) + ", 0)");
 				}
 
+				peers.get(idPeer).addContent(new Content(idContent, info_hash, 0));
 				setChanged();
 				notifyObservers();
 				return true;
@@ -313,8 +315,10 @@ public class PeersManager extends Observable implements Runnable {
 					if (Database.getInstance().count("PEER_CONTENT", "id_peer = " + idPeer + " AND id_content = " + idContent) == 0) {
 						Database.getInstance()
 								.update("INSERT INTO PEER_CONTENT (id_peer, id_content, percent) VALUES (" + idPeer + "," + idContent + ", 0)");
+						peers.get(idPeer).addContent(new Content(idContent, info_hash, 0));
 					}
 				}
+
 				setChanged();
 				notifyObservers();
 				return true;

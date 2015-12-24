@@ -6,6 +6,8 @@ import java.awt.Font;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.awt.Insets;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
 import java.util.Map;
 import java.util.Observable;
 import java.util.Observer;
@@ -28,7 +30,8 @@ public class PeersPanel extends JPanel implements Observer {
 	private final DefaultTableModel	modelTablePeers;
 	private JTable					tableContent;
 	private DefaultTableModel		modelTableContent;
-	private String[]				header;
+	private String[]				headerPeers;
+	private String[]				headerContent;
 
 	public PeersPanel() {
 		setBackground(new Color(255, 218, 185));
@@ -39,14 +42,18 @@ public class PeersPanel extends JPanel implements Observer {
 		gridBagLayout.rowWeights = new double[] { 1.0, Double.MIN_VALUE };
 		setLayout(gridBagLayout);
 
-		header = new String[3];
-		header[0] = "ID";
-		header[1] = "IP";
-		header[2] = "Port";
+		headerPeers = new String[3];
+		headerPeers[0] = "ID";
+		headerPeers[1] = "IP";
+		headerPeers[2] = "Port";
 		modelTablePeers = new DefaultTableModel();
-		modelTablePeers.setDataVector(new String[1][header.length], header);
+		modelTablePeers.setDataVector(new String[1][headerPeers.length], headerPeers);
 
-		final String[] headerContent = { "ID", "INFO_HASH", "Estado", "Completado" };
+		headerContent = new String[4];
+		headerContent[0] = "ID";
+		headerContent[1] = "INFO HASH";
+		headerContent[2] = "Mode";
+		headerContent[3] = "Completed";
 
 		modelTableContent = new DefaultTableModel();
 		modelTableContent.setDataVector(new String[1][headerContent.length], headerContent);
@@ -78,6 +85,14 @@ public class PeersPanel extends JPanel implements Observer {
 		tablePeers.setBackground(Color.WHITE);
 		tablePeers.setFont(new Font("Segoe UI Symbol", Font.PLAIN, 14));
 		tablePeers.setRowHeight(30);
+		tablePeers.addMouseListener(new MouseAdapter() {
+			@Override
+			public void mouseClicked(MouseEvent e) {
+				if (tablePeers.getSelectedRow() > -1) {
+					updateContentsTableData();
+				}
+			}
+		});
 
 		tablePeers.getTableHeader().setFont(new Font("Arial", Font.PLAIN, 15));
 
@@ -104,14 +119,46 @@ public class PeersPanel extends JPanel implements Observer {
 		PeersManager.getInstance().addObserver(this);
 	}
 
+	private void updateContentsTableData() {
+		try {
+			System.out.println("FILA: " + this.tablePeers.getSelectedRow());
+			if (this.tablePeers.getSelectedRow() > -1) {
+
+				Peer peer = PeersManager.getInstance().getPeers()
+						.get(Integer.parseInt((String) this.tablePeers.getModel().getValueAt(this.tablePeers.getSelectedRow(), 0)));
+				String[][] data = new String[peer.getContents().size()][this.headerContent.length];
+
+				for (int i = 0; i < peer.getContents().size(); i++) {
+					data[i][0] = Integer.toString(peer.getContents().get(i).getId());
+					data[i][1] = peer.getContents().get(i).getInfoHash();
+					if (peer.getContents().get(i).getPercent() == 0) {
+						data[i][2] = "Leecher";
+					} else if (peer.getContents().get(i).getPercent() > 0 && peer.getContents().get(i).getPercent() < 100) {
+						data[i][2] = "Leecher / Seeder";
+					} else if (peer.getContents().get(i).getPercent() == 100) {
+						data[i][2] = "Seeder";
+					}
+					data[i][3] = Integer.toString(peer.getContents().get(i).getPercent()) + " %";
+				}
+
+				this.modelTableContent = new DefaultTableModel();
+				this.modelTableContent.setDataVector(data, headerContent);
+				this.tableContent.setModel(this.modelTableContent);
+			}
+		} catch (Exception e) {
+			System.out.println("Falla en update contents");
+			e.printStackTrace();
+		}
+	}
+
 	@Override
 	public synchronized void update(Observable o, Object arg) {
 		if (o == PeersManager.getInstance()) {
 			try {
+				int selectedRow = this.tablePeers.getSelectedRow();
 				ConcurrentHashMap<Integer, Peer> peers = PeersManager.getInstance().getPeers();
-
 				if (peers.size() != tablePeers.getRowCount()) {
-					modelTablePeers.setDataVector(new String[peers.size()][header.length], header);
+					modelTablePeers.setDataVector(new String[peers.size()][headerPeers.length], headerPeers);
 				}
 
 				int i = 0;
@@ -122,6 +169,11 @@ public class PeersPanel extends JPanel implements Observer {
 
 					i++;
 				}
+				System.out.println("Fila seleccionada: " + selectedRow);
+				if (peers.size() > selectedRow && selectedRow > -1) {
+					this.tablePeers.setRowSelectionInterval(selectedRow, selectedRow);
+				}
+				updateContentsTableData();
 
 			} catch (Exception e) {
 				ErrorsLog.getInstance().writeLog(this.getClass().getName(), new Object() {
