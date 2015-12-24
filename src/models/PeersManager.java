@@ -171,16 +171,17 @@ public class PeersManager extends Observable implements Runnable {
 					List<PeerInfo> lPeerInfo = new ArrayList<>();
 
 					AnnounceRequest announceRequest = AnnounceRequest.parse(messageIn.getData());
-					boolean exist = Database.getInstance().count("CONTENTS", "hash = '" + announceRequest.getInfoHash() + "'") != 0;
+					System.out.println("HEX: " + announceRequest.getHexInfoHash());
+					boolean exist = Database.getInstance().count("CONTENTS", "hash = '" + announceRequest.getHexInfoHash() + "'") != 0;
 					if (!exist) {
-						addContent(ip.getHostAddress(), port, announceRequest.getInfoHash());
+						addContent(ip.getHostAddress(), port, announceRequest.getHexInfoHash());
 					} else {
-						addRelation(ip.getHostAddress(), port, announceRequest.getInfoHash());
+						addRelation(ip.getHostAddress(), port, announceRequest.getHexInfoHash());
 					}
 
 					ResultSet rs = Database.getInstance().consult(
 							"SELECT P.ip, P.port, PC.percent FROM PEERS P INNER JOIN PEER_CONTENT PC ON P.id = PC.id_peer INNER JOIN CONTENTS C ON PC.id_content = C.id WHERE C.hash = '"
-									+ announceRequest.getInfoHash() + "'");
+									+ announceRequest.getHexInfoHash() + "'");
 
 					while (rs.next()) {
 						if (!rs.getString("ip").equals(ip.getHostAddress()) || rs.getInt("port") != port) {
