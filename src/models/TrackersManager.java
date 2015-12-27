@@ -439,6 +439,7 @@ public class TrackersManager extends Observable implements MessageListener {
 			if (id == currentTracker.getId()) {
 				currentTracker.setMaster(true);
 				Window.getInstance().setTitle("Tracker [ID: " + this.currentTracker.getId() + "] [Mode: MASTER]");
+				System.out.println("########### MASTER ###########");
 			}
 			idMaster = id;
 			trackers.get(getLowerId()).setMaster(true);

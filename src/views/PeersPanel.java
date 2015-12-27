@@ -47,7 +47,7 @@ public class PeersPanel extends JPanel implements Observer {
 		headerPeers[1] = "IP";
 		headerPeers[2] = "Port";
 		modelTablePeers = new DefaultTableModel();
-		modelTablePeers.setDataVector(new String[1][headerPeers.length], headerPeers);
+		modelTablePeers.setDataVector(new String[0][headerPeers.length], headerPeers);
 
 		headerContent = new String[4];
 		headerContent[0] = "ID";
@@ -56,7 +56,7 @@ public class PeersPanel extends JPanel implements Observer {
 		headerContent[3] = "Completed";
 
 		modelTableContent = new DefaultTableModel();
-		modelTableContent.setDataVector(new String[1][headerContent.length], headerContent);
+		modelTableContent.setDataVector(new String[0][headerContent.length], headerContent);
 
 		JSplitPane splitPane = new JSplitPane();
 		splitPane.setBackground(new Color(255, 218, 185));
@@ -121,7 +121,6 @@ public class PeersPanel extends JPanel implements Observer {
 
 	private void updateContentsTableData() {
 		try {
-			System.out.println("FILA: " + this.tablePeers.getSelectedRow());
 			if (this.tablePeers.getSelectedRow() > -1) {
 
 				Peer peer = PeersManager.getInstance().getPeers()
@@ -169,7 +168,6 @@ public class PeersPanel extends JPanel implements Observer {
 
 					i++;
 				}
-				System.out.println("Fila seleccionada: " + selectedRow);
 				if (peers.size() > selectedRow && selectedRow > -1) {
 					this.tablePeers.setRowSelectionInterval(selectedRow, selectedRow);
 				}

@@ -2,6 +2,7 @@ package controllers;
 
 import models.PeersManager;
 import models.TrackersManager;
+import utilities.Database;
 import utilities.ErrorsLog;
 
 public class Controller {
@@ -28,6 +29,7 @@ public class Controller {
 	public void disconnect() {
 		PeersManager.getInstance().stop();
 		TrackersManager.getInstance().stop();
+		Database.getInstance().disconnect();
 	}
 
 	public static Controller getInstance() {

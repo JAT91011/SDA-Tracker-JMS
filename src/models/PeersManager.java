@@ -34,23 +34,15 @@ public class PeersManager extends Observable implements Runnable {
 
 	private static int			DATAGRAM_LENGTH			= 2048;
 	private static int			INTERVAL				= 1000;
-	private static int			READY_TO_SAVE_TIMEOUT	= 5;
+	private static int			READY_TO_SAVE_TIMEOUT	= 3000;
 
 	public enum SaveProcess {
 		BLOCK(0), SAVE(1), NOT_SAVE(2);
 
-		private int value;
+		public int value;
 
 		private SaveProcess(int value) {
 			this.value = value;
-		}
-
-		private void setValue(int value) {
-			this.value = value;
-		}
-
-		public int getValue() {
-			return this.value;
 		}
 	}
 
@@ -93,6 +85,7 @@ public class PeersManager extends Observable implements Runnable {
 	public boolean stop() {
 		try {
 			this.socket.leaveGroup(group);
+			this.socket.close();
 			this.enable = false;
 			return true;
 		} catch (IOException e) {
@@ -234,27 +227,61 @@ public class PeersManager extends Observable implements Runnable {
 
 	private void onAnnounceRequestReceived(final AnnounceRequest announceRequest, final InetAddress ip, final int port) {
 		try {
-
+			boolean sendAnnounceResponse = false;
 			// Esta descargando el contenido
 			if (announceRequest.getEvent() == Event.STARTED) {
 				boolean existContent = Database.getInstance().count("CONTENTS", "hash = '" + announceRequest.getHexInfoHash() + "'") != 0;
+
 				if (!existContent) {
+					// No existe el contenido y se añade
 					addContent(ip.getHostAddress(), port, announceRequest.getHexInfoHash());
 				} else {
-					addRelation(ip.getHostAddress(), port, announceRequest.getHexInfoHash());
-					if (this.saveProcess == SaveProcess.SAVE) {
-						long totalSize = announceRequest.getDownloaded() + announceRequest.getLeft();
-						updateDownloaded(ip.getHostAddress(), port, announceRequest.getHexInfoHash(),
-								(int) ((announceRequest.getDownloaded() * 100) / totalSize));
+					// Existe el contenido
+					int idContent = Database.getInstance().consult("SELECT id FROM CONTENTS WHERE hash = '" + announceRequest.getHexInfoHash() + "'")
+							.getInt("id");
+					int idPeer = 0;
+					for (Entry<Integer, Peer> entry : this.peers.entrySet()) {
+						if (entry.getValue().getIp().equals(ip.getHostAddress()) && entry.getValue().getPort() == port) {
+							idPeer = entry.getKey();
+							break;
+						}
+					}
+					if (Database.getInstance().count("PEER_CONTENT", "id_peer = " + idPeer + " AND id_content = " + idContent) == 0) {
+						// No existe la relacion entre peer y contenido
+						addRelation(idPeer, idContent, announceRequest.getHexInfoHash());
+					} else {
+						// Existe la relacion y se actualiza el porcentaje
+						updateDownloaded(idPeer, idContent, announceRequest.getHexInfoHash(),
+								(int) ((announceRequest.getDownloaded() * 100) / (announceRequest.getDownloaded() + announceRequest.getLeft())));
+						sendAnnounceResponse = true;
 					}
 				}
 			}
 			// Esta compartiendo el contenido
 			else if (announceRequest.getEvent() == Event.COMPLETED) {
-				updateDownloaded(ip.getHostAddress(), port, announceRequest.getHexInfoHash(), 100);
+				int idContent = Database.getInstance().consult("SELECT id FROM CONTENTS WHERE hash = '" + announceRequest.getHexInfoHash() + "'")
+						.getInt("id");
+				int idPeer = 0;
+				for (Entry<Integer, Peer> entry : this.peers.entrySet()) {
+					if (entry.getValue().getIp().equals(ip.getHostAddress()) && entry.getValue().getPort() == port) {
+						idPeer = entry.getKey();
+						break;
+					}
+				}
+				boolean completed = false;
+				for (Content content : this.peers.get(idPeer).getContents()) {
+					if (content.getInfoHash().equals(announceRequest.getHexInfoHash())) {
+						completed = content.getPercent() == 100;
+						break;
+					}
+				}
+				if (!completed) {
+					updateDownloaded(idPeer, idContent, announceRequest.getHexInfoHash(), 100);
+					sendAnnounceResponse = true;
+				}
 			}
 
-			if (this.saveProcess == SaveProcess.SAVE) {
+			if (this.saveProcess == SaveProcess.SAVE && sendAnnounceResponse) {
 				int leechers = 0;
 				int seeders = 0;
 				List<PeerInfo> lPeerInfo = new ArrayList<>();
@@ -300,7 +327,7 @@ public class PeersManager extends Observable implements Runnable {
 				int time = 0;
 				System.out.println("PEERS_MANAGER\tADD PEER - Envia ready to save y se bloquea");
 				while (this.saveProcess == SaveProcess.BLOCK && time < READY_TO_SAVE_TIMEOUT) {
-					Thread.sleep(1000);
+					Thread.sleep(1);
 					time += 1;
 				}
 				System.out.println("PEERS_MANAGER\tADD PEER - El tiempo de espera ha sido de: " + time + " segundos y el proceso de guardado es: "
@@ -327,42 +354,20 @@ public class PeersManager extends Observable implements Runnable {
 	 */
 	private boolean addContent(final String ip, final int port, final String info_hash) {
 		try {
-			if (Database.getInstance().count("CONTENTS", "hash = '" + info_hash + "'") == 0) {
+			this.saveProcess = SaveProcess.BLOCK;
+			TrackersManager.getInstance().sendQueueMessage(Datagram.READY_TO_SAVE, TrackersManager.getInstance().getIdMaster(), null);
+			int time = 0;
+			System.out.println("PEERS_MANAGER\tADD CONTENT - Envia ready to save y se bloquea");
+			while (this.saveProcess == SaveProcess.BLOCK && time < READY_TO_SAVE_TIMEOUT) {
+				Thread.sleep(1);
+				time += 1;
+			}
+			System.out.println("PEERS_MANAGER\tADD CONTENT - El tiempo de espera ha sido de: " + time + " segundos y el proceso de guardado es: "
+					+ this.saveProcess);
 
-				this.saveProcess = SaveProcess.BLOCK;
-				TrackersManager.getInstance().sendQueueMessage(Datagram.READY_TO_SAVE, TrackersManager.getInstance().getIdMaster(), null);
-				int time = 0;
-				System.out.println("PEERS_MANAGER\tADD CONTENT - Envia ready to save y se bloquea");
-				while (this.saveProcess == SaveProcess.BLOCK && time < READY_TO_SAVE_TIMEOUT) {
-					Thread.sleep(1000);
-					time += 1;
-				}
-				System.out.println("PEERS_MANAGER\tADD CONTENT - El tiempo de espera ha sido de: " + time + " segundos y el proceso de guardado es: "
-						+ this.saveProcess);
-
-				if (this.saveProcess == SaveProcess.SAVE) {
-					Database.getInstance().update("INSERT INTO CONTENTS (hash) VALUES ('" + info_hash + "')");
-					int idContent = Database.getInstance().consult("SELECT id FROM CONTENTS WHERE hash = '" + info_hash + "'").getInt("id");
-					int idPeer = -1;
-					for (Entry<Integer, Peer> entry : this.peers.entrySet()) {
-						if (entry.getValue().getIp().equals(ip) && entry.getValue().getPort() == port) {
-							idPeer = entry.getKey();
-							break;
-						}
-					}
-
-					if (idPeer > -1 && idContent != 0) {
-						Database.getInstance().update("INSERT INTO PEER_CONTENT (id_peer, id_content, percent) VALUES (" + Integer.toString(idPeer)
-								+ "," + Integer.toString(idContent) + ", 0)");
-					}
-
-					peers.get(idPeer).addContent(new Content(idContent, info_hash, 0));
-					setChanged();
-					notifyObservers();
-					return true;
-				} else {
-					return false;
-				}
+			if (this.saveProcess == SaveProcess.SAVE) {
+				Database.getInstance().update("INSERT INTO CONTENTS (hash) VALUES ('" + info_hash + "')");
+				return true;
 			}
 		} catch (Exception e) {
 			ErrorsLog.getInstance().writeLog(this.getClass().getName(), new Object() {
@@ -375,41 +380,22 @@ public class PeersManager extends Observable implements Runnable {
 	/**
 	 * Funcion para notificar que se ha insertado una nueva relacion
 	 */
-	private void addRelation(final String ip, final int port, final String info_hash) {
+	private void addRelation(final int idPeer, final int idContent, final String info_hash) {
 		try {
-			if (Database.getInstance().count("CONTENTS", "hash = '" + info_hash + "'") != 0) {
+			this.saveProcess = SaveProcess.BLOCK;
+			TrackersManager.getInstance().sendQueueMessage(Datagram.READY_TO_SAVE, TrackersManager.getInstance().getIdMaster(), null);
+			int time = 0;
+			System.out.println("PEERS_MANAGER\tADD RELATION - Envia ready to save y se bloquea");
+			while (this.saveProcess == SaveProcess.BLOCK && time < READY_TO_SAVE_TIMEOUT) {
+				Thread.sleep(1);
+				time += 1;
+			}
+			System.out.println("PEERS_MANAGER\tADD RELATION - El tiempo de espera ha sido de: " + time + " segundos y el proceso de guardado es: "
+					+ this.saveProcess);
 
-				int idContent = Database.getInstance().consult("SELECT id FROM CONTENTS WHERE hash = '" + info_hash + "'").getInt("id");
-				int idPeer = 0;
-				for (Entry<Integer, Peer> entry : this.peers.entrySet()) {
-					if (entry.getValue().getIp().equals(ip) && entry.getValue().getPort() == port) {
-						idPeer = entry.getKey();
-						break;
-					}
-				}
-				if (idPeer != 0 && idContent != 0) {
-					System.out.println(Database.getInstance().count("PEER_CONTENT", "id_peer = " + idPeer + " AND id_content = " + idContent));
-					if (Database.getInstance().count("PEER_CONTENT", "id_peer = " + idPeer + " AND id_content = " + idContent) == 0) {
-
-						this.saveProcess = SaveProcess.BLOCK;
-						TrackersManager.getInstance().sendQueueMessage(Datagram.READY_TO_SAVE, TrackersManager.getInstance().getIdMaster(), null);
-						int time = 0;
-						System.out.println("PEERS_MANAGER\tADD RELATION - Envia ready to save y se bloquea");
-						while (this.saveProcess == SaveProcess.BLOCK && time < READY_TO_SAVE_TIMEOUT) {
-							Thread.sleep(1000);
-							time += 1;
-						}
-						System.out.println("PEERS_MANAGER\tADD RELATION - El tiempo de espera ha sido de: " + time
-								+ " segundos y el proceso de guardado es: " + this.saveProcess);
-
-						if (this.saveProcess == SaveProcess.SAVE) {
-							Database.getInstance()
-									.update("INSERT INTO PEER_CONTENT (id_peer, id_content, percent) VALUES (" + idPeer + "," + idContent + ", 0)");
-							peers.get(idPeer).addContent(new Content(idContent, info_hash, 0));
-						}
-					}
-				}
-
+			if (this.saveProcess == SaveProcess.SAVE) {
+				Database.getInstance().update("INSERT INTO PEER_CONTENT (id_peer, id_content, percent) VALUES (" + idPeer + "," + idContent + ", 0)");
+				peers.get(idPeer).addContent(new Content(idContent, info_hash, 0));
 				setChanged();
 				notifyObservers();
 			}
@@ -423,39 +409,29 @@ public class PeersManager extends Observable implements Runnable {
 	/**
 	 * Funcion para actualizar el porcentaje de descarga del contenido
 	 */
-	private void updateDownloaded(final String ip, final int port, final String info_hash, final int percent) {
+	private void updateDownloaded(final int idPeer, final int idContent, final String info_hash, final int percent) {
 		try {
 			this.saveProcess = SaveProcess.BLOCK;
 			TrackersManager.getInstance().sendQueueMessage(Datagram.READY_TO_SAVE, TrackersManager.getInstance().getIdMaster(), null);
 			int time = 0;
 			System.out.println("PEERS_MANAGER\tUPDATE DOWNLOADED - Envia ready to save y se bloquea");
 			while (this.saveProcess == SaveProcess.BLOCK && time < READY_TO_SAVE_TIMEOUT) {
-				Thread.sleep(1000);
+				Thread.sleep(1);
 				time += 1;
 			}
 			System.out.println("PEERS_MANAGER\tUPDATE DOWNLOADED - El tiempo de espera ha sido de: " + time
 					+ " segundos y el proceso de guardado es: " + this.saveProcess);
 
 			if (this.saveProcess == SaveProcess.SAVE) {
-				int idContent = Database.getInstance().consult("SELECT id FROM CONTENTS WHERE hash = '" + info_hash + "'").getInt("id");
-				int idPeer = 0;
-				for (Entry<Integer, Peer> entry : this.peers.entrySet()) {
-					if (entry.getValue().getIp().equals(ip) && entry.getValue().getPort() == port) {
-						idPeer = entry.getKey();
-						for (Content content : entry.getValue().getContents()) {
-							if (content.getInfoHash().equals(info_hash)) {
-								idContent = content.getId();
-								content.setPercent(percent);
-							}
-						}
+				Database.getInstance()
+						.update("UPDATE PEER_CONTENT SET percent = " + percent + " WHERE id_peer = " + idPeer + " AND id_content = " + idContent);
+
+				for (Content content : this.peers.get(idPeer).getContents()) {
+					if (content.getInfoHash().equals(info_hash)) {
+						content.setPercent(percent);
 						break;
 					}
 				}
-				if (idPeer != 0 && idContent != 0) {
-					Database.getInstance()
-							.update("UPDATE PEER_CONTENT SET percent = " + percent + " WHERE id_peer = " + idPeer + " AND id_content = " + idContent);
-				}
-
 				setChanged();
 				notifyObservers();
 			}
@@ -491,7 +467,6 @@ public class PeersManager extends Observable implements Runnable {
 				this.messageIn = new DatagramPacket(buffer, buffer.length);
 
 				this.socket.receive(messageIn);
-				System.out.println("Cliente: " + messageIn.getAddress().getHostAddress() + " " + messageIn.getPort());
 				if (connected) {
 					processData(this.messageIn, messageIn.getAddress(), messageIn.getPort());
 				}
