@@ -26,6 +26,7 @@ public class Controller {
 	}
 
 	public void disconnect() {
+		PeersManager.getInstance().stop();
 		TrackersManager.getInstance().stop();
 	}
 

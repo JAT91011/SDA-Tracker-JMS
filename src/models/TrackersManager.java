@@ -72,14 +72,21 @@ public class TrackersManager extends Observable implements MessageListener {
 
 	private Tracker								currentTracker;
 	private ConcurrentHashMap<Integer, Tracker>	trackers;
+	private ConcurrentHashMap<Integer, Boolean>	trackersReadyToSave;
 
 	private Timer								timerSendKeepAlive;
 	private Timer								timerCheckKeepAlive;
 
+	private int									idMaster;
+	private boolean								savingData;
+
 	private TrackersManager() {
 		try {
 			this.trackers = new ConcurrentHashMap<Integer, Tracker>();
+			this.trackersReadyToSave = new ConcurrentHashMap<Integer, Boolean>();
+
 			this.context = new InitialContext();
+			this.savingData = false;
 			this.topicConnectionFactory = (TopicConnectionFactory) this.context.lookup(Constants.TOPIC_CONNECTION_FACTORY_NAME);
 			this.queueConnectionFactory = (QueueConnectionFactory) this.context.lookup(Constants.QUEUE_CONNECTION_FACTORY_NAME);
 
@@ -132,6 +139,7 @@ public class TrackersManager extends Observable implements MessageListener {
 			this.currentTracker = new Tracker(getAvailableId(), this.trackers.size() == 0);
 			this.currentTracker.setFirstConnection(new Date());
 			if (this.currentTracker.isMaster()) {
+				this.idMaster = this.currentTracker.getId();
 				Window.getInstance().setTitle("Tracker [ID: " + this.currentTracker.getId() + "] [Mode: MASTER]");
 				Database.getInstance().createDatabase(this.currentTracker.getId());
 				loadDatabasePeers();
@@ -181,28 +189,48 @@ public class TrackersManager extends Observable implements MessageListener {
 		}
 	}
 
-	public synchronized void sendKeepAlive() {
+	private synchronized void sendKeepAlive() {
 		try {
-			ObjectMessage message = this.topicSession.createObjectMessage();
-			message.setJMSType("ObjectMessage");
-			message.setJMSPriority(1);
-			message.setJMSMessageID(Integer.toString(this.currentTracker.getId()));
-			message.setObject(new Datagram(Datagram.KEEP_ALIVE, this.currentTracker.getId(), this.currentTracker.isMaster()));
-			this.topicPublisher.publish(message);
-		} catch (JMSException e) {
+			sendTopicMessage(Datagram.KEEP_ALIVE);
+		} catch (Exception e) {
 			ErrorsLog.getInstance().writeLog(this.getClass().getName(), new Object() {
 			}.getClass().getEnclosingMethod().getName(), e.toString());
 			e.printStackTrace();
 		}
 	}
 
-	public synchronized void sendDatabase(final int idTracker) {
+	private synchronized void sendDatabase(final int idTracker) {
 		try {
-			ObjectMessage message = this.queueSession.createObjectMessage();
-			message.setStringProperty("Filter", Integer.toString(idTracker));
 			Path path = Paths.get(Constants.DATABASE_FILE_PATH.replace("#", Integer.toString(this.currentTracker.getId())));
 			byte[] data = Files.readAllBytes(path);
-			message.setObject(new Datagram(Datagram.DB_REPLICATION, this.currentTracker.getId(), idTracker, data));
+			sendQueueMessage(Datagram.DB_REPLICATION, idTracker, data);
+		} catch (Exception e) {
+			ErrorsLog.getInstance().writeLog(this.getClass().getName(), new Object() {
+			}.getClass().getEnclosingMethod().getName(), e.toString());
+			e.printStackTrace();
+		}
+	}
+
+	public synchronized void sendTopicMessage(final int typeDatagram) {
+		try {
+			ObjectMessage message = this.topicSession.createObjectMessage();
+			message.setJMSType("ObjectMessage");
+			message.setJMSPriority(1);
+			message.setJMSMessageID(Integer.toString(this.currentTracker.getId()));
+			message.setObject(new Datagram(typeDatagram, this.currentTracker.getId(), this.currentTracker.isMaster()));
+			this.topicPublisher.publish(message);
+		} catch (Exception e) {
+			ErrorsLog.getInstance().writeLog(this.getClass().getName(), new Object() {
+			}.getClass().getEnclosingMethod().getName(), e.toString());
+			e.printStackTrace();
+		}
+	}
+
+	public synchronized void sendQueueMessage(final int typeDatagram, final int toTrackerId, final byte[] data) {
+		try {
+			ObjectMessage message = this.queueSession.createObjectMessage();
+			message.setStringProperty("Filter", Integer.toString(toTrackerId));
+			message.setObject(new Datagram(typeDatagram, this.currentTracker.getId(), toTrackerId, data));
 			this.queueSender.send(message);
 		} catch (Exception e) {
 			ErrorsLog.getInstance().writeLog(this.getClass().getName(), new Object() {
@@ -243,6 +271,7 @@ public class TrackersManager extends Observable implements MessageListener {
 				peers.add(peer);
 			}
 			PeersManager.getInstance().addAllPeers(peers);
+			PeersManager.getInstance().setConnected(true);
 
 		} catch (Exception e) {
 			ErrorsLog.getInstance().writeLog(this.getClass().getName(), new Object() {
@@ -277,6 +306,7 @@ public class TrackersManager extends Observable implements MessageListener {
 	 */
 	public synchronized void addTracker(Tracker tracker) {
 		try {
+			this.trackersReadyToSave.put(tracker.getId(), false);
 			this.trackers.put(tracker.getId(), tracker);
 			setChanged();
 			notifyObservers();
@@ -295,6 +325,7 @@ public class TrackersManager extends Observable implements MessageListener {
 	 */
 	public synchronized void removeTracker(int id) {
 		try {
+			this.trackersReadyToSave.remove(id);
 			this.trackers.remove(id);
 			setChanged();
 			notifyObservers();
@@ -314,6 +345,7 @@ public class TrackersManager extends Observable implements MessageListener {
 	 */
 	public synchronized void removeTrackers() {
 		try {
+			this.trackersReadyToSave.clear();
 			this.trackers.clear();
 			setChanged();
 			notifyObservers();
@@ -331,6 +363,7 @@ public class TrackersManager extends Observable implements MessageListener {
 	 */
 	public synchronized void setTracker(Tracker tracker) {
 		try {
+			this.trackersReadyToSave.put(tracker.getId(), false);
 			this.trackers.put(tracker.getId(), tracker);
 			setChanged();
 			notifyObservers();
@@ -350,19 +383,24 @@ public class TrackersManager extends Observable implements MessageListener {
 		return instance.trackers;
 	}
 
-	public synchronized void updateTrackerKeepAlive(final int idFrom, final boolean isMaster) {
+	private synchronized void updateTrackerKeepAlive(final int idFrom, final boolean isMaster) {
 		try {
 			if (trackers.get(idFrom) == null) {
-				Tracker t = new Tracker(idFrom, isMaster);
-				t.setLastKeepAlive(new Date());
-				t.setFirstConnection(new Date());
-				addTracker(t);
-				if (this.currentTracker != null && this.currentTracker.isMaster()) {
-					sendDatabase(idFrom);
+				if (!this.savingData) {
+					Tracker t = new Tracker(idFrom, isMaster);
+					t.setLastKeepAlive(new Date());
+					t.setFirstConnection(new Date());
+					addTracker(t);
+					if (this.currentTracker != null && this.currentTracker.isMaster()) {
+						sendDatabase(idFrom);
+					}
 				}
 			} else {
 				trackers.get(idFrom).setLastKeepAlive(new Date());
 				setTracker(trackers.get(idFrom));
+			}
+			if (isMaster) {
+				idMaster = idFrom;
 			}
 		} catch (Exception ex) {
 			ErrorsLog.getInstance().writeLog(this.getClass().getName(), new Object() {
@@ -395,15 +433,42 @@ public class TrackersManager extends Observable implements MessageListener {
 	 * Funcion para actualizar y nombrar el nuevo Master
 	 * 
 	 */
-	public synchronized void updateMaster() {
+	private synchronized void updateMaster() {
 		try {
 			int id = getLowerId();
 			if (id == currentTracker.getId()) {
 				currentTracker.setMaster(true);
 				Window.getInstance().setTitle("Tracker [ID: " + this.currentTracker.getId() + "] [Mode: MASTER]");
 			}
+			idMaster = id;
 			trackers.get(getLowerId()).setMaster(true);
 			setTracker(trackers.get(getLowerId()));
+		} catch (Exception ex) {
+			ErrorsLog.getInstance().writeLog(this.getClass().getName(), new Object() {
+			}.getClass().getEnclosingMethod().getName(), ex.toString());
+			ex.printStackTrace();
+		}
+	}
+
+	private synchronized void onReadyToSaveReceived(final int idTracker) {
+		try {
+			this.trackersReadyToSave.put(idTracker, true);
+			boolean allReady = true;
+			for (Map.Entry<Integer, Boolean> entry : this.trackersReadyToSave.entrySet()) {
+				if (!entry.getValue()) {
+					allReady = false;
+					break;
+				}
+			}
+			if (allReady) {
+				System.out.println("Todos los trackers estan listos para guardar");
+				sendTopicMessage(Datagram.SAVE_DATA);
+				for (Map.Entry<Integer, Boolean> entry : this.trackersReadyToSave.entrySet()) {
+					entry.setValue(false);
+				}
+				this.savingData = false;
+			}
+
 		} catch (Exception ex) {
 			ErrorsLog.getInstance().writeLog(this.getClass().getName(), new Object() {
 			}.getClass().getEnclosingMethod().getName(), ex.toString());
@@ -417,6 +482,10 @@ public class TrackersManager extends Observable implements MessageListener {
 
 	public Tracker getCurrentTracker() {
 		return currentTracker;
+	}
+
+	public int getIdMaster() {
+		return idMaster;
 	}
 
 	public static TrackersManager getInstance() {
@@ -434,19 +503,23 @@ public class TrackersManager extends Observable implements MessageListener {
 
 					case 1: // DB_REPLICATION
 						loadDatabase(datagram.getContent());
-
 						break;
 
 					case 2: // READY_TO_SAVE
-
+						if (this.currentTracker.isMaster()) {
+							System.out.println("El master recibe ready to save");
+							this.savingData = true;
+							onReadyToSaveReceived(datagram.getIdTrackerFrom());
+						}
 						break;
 
 					case 3: // SAVE_DATA
-
+						System.out.println("Recibe un save data");
+						PeersManager.getInstance().setSaveProcess(true);
 						break;
 
 					case 4: // DO_NOT_SAVE_DATA
-
+						PeersManager.getInstance().setSaveProcess(false);
 						break;
 
 					case 5: // KEEP_ALIVE
