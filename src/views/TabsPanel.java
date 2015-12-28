@@ -8,12 +8,10 @@ import java.awt.GridBagLayout;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseListener;
 
-import javax.swing.ImageIcon;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.SwingConstants;
 
-import controllers.Controller;
 import views.components.JSlidePanel;
 
 public class TabsPanel extends JPanel implements MouseListener {
@@ -22,7 +20,6 @@ public class TabsPanel extends JPanel implements MouseListener {
 
 	private JSlidePanel<JPanel>	slider;
 
-	private JLabel				lblDisconnect;
 	private JLabel				lblTrackers;
 	private JLabel				lblPeers;
 
@@ -35,23 +32,11 @@ public class TabsPanel extends JPanel implements MouseListener {
 		this.slider = new JSlidePanel<JPanel>(this);
 
 		GridBagLayout gridBagLayout = new GridBagLayout();
-		gridBagLayout.columnWidths = new int[] { 60, 0, 0, 0 };
+		gridBagLayout.columnWidths = new int[] { 0, 0, 0 };
 		gridBagLayout.rowHeights = new int[] { 50, 0, 0 };
-		gridBagLayout.columnWeights = new double[] { 0.0, 1.0, 1.0, Double.MIN_VALUE };
+		gridBagLayout.columnWeights = new double[] { 1.0, 1.0, Double.MIN_VALUE };
 		gridBagLayout.rowWeights = new double[] { 0.0, 1.0, Double.MIN_VALUE };
 		setLayout(gridBagLayout);
-
-		lblDisconnect = new JLabel(new ImageIcon("icons/disconnect-icon.png"));
-		lblDisconnect.addMouseListener(this);
-		lblDisconnect.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-		lblDisconnect.setText("");
-		lblDisconnect.setBackground(new Color(240, 128, 128));
-		lblDisconnect.setOpaque(true);
-		GridBagConstraints gbc_lblDisconnect = new GridBagConstraints();
-		gbc_lblDisconnect.fill = GridBagConstraints.BOTH;
-		gbc_lblDisconnect.gridx = 0;
-		gbc_lblDisconnect.gridy = 0;
-		add(lblDisconnect, gbc_lblDisconnect);
 
 		lblTrackers = new JLabel("Trackers");
 		lblTrackers.addMouseListener(this);
@@ -63,7 +48,7 @@ public class TabsPanel extends JPanel implements MouseListener {
 		lblTrackers.setFont(new Font("Tahoma", Font.PLAIN, 23));
 		GridBagConstraints gbc_lblTrackers = new GridBagConstraints();
 		gbc_lblTrackers.fill = GridBagConstraints.BOTH;
-		gbc_lblTrackers.gridx = 1;
+		gbc_lblTrackers.gridx = 0;
 		gbc_lblTrackers.gridy = 0;
 		add(lblTrackers, gbc_lblTrackers);
 
@@ -77,7 +62,7 @@ public class TabsPanel extends JPanel implements MouseListener {
 		lblPeers.setFont(new Font("Tahoma", Font.PLAIN, 23));
 		GridBagConstraints gbc_lblPeers = new GridBagConstraints();
 		gbc_lblPeers.fill = GridBagConstraints.BOTH;
-		gbc_lblPeers.gridx = 2;
+		gbc_lblPeers.gridx = 1;
 		gbc_lblPeers.gridy = 0;
 		add(lblPeers, gbc_lblPeers);
 
@@ -95,11 +80,7 @@ public class TabsPanel extends JPanel implements MouseListener {
 	}
 
 	public void mouseClicked(MouseEvent e) {
-		if (e.getSource() == lblDisconnect) {
-			Controller.getInstance().disconnect();
-			Window.getInstance().setTitle("Tracker");
-			Window.getInstance().getSlider().slideRight();
-		} else if (e.getSource() == lblTrackers) {
+		if (e.getSource() == lblTrackers) {
 			if (!this.watchingTrackers) {
 				this.slider.slideTop();
 				this.watchingTrackers = true;
