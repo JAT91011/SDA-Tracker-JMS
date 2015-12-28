@@ -34,7 +34,7 @@ public class PeersManager extends Observable implements Runnable {
 
 	private static int			DATAGRAM_LENGTH			= 2048;
 	private static int			INTERVAL				= 1000;
-	private static int			READY_TO_SAVE_TIMEOUT	= 3000;
+	private static int			READY_TO_SAVE_TIMEOUT	= 5000;
 
 	public enum SaveProcess {
 		BLOCK(0), SAVE(1), NOT_SAVE(2);
@@ -331,7 +331,12 @@ public class PeersManager extends Observable implements Runnable {
 			if (Database.getInstance().count("PEERS", "ip = '" + ip + "' AND port = " + Integer.toString(port)) == 0) {
 				System.out.println("No existe en la base de datos");
 				this.saveProcess = SaveProcess.BLOCK;
-				TrackersManager.getInstance().sendQueueMessage(Datagram.READY_TO_SAVE, TrackersManager.getInstance().getIdMaster(), null);
+				String[] saveData = new String[2];
+				saveData[0] = ip;
+				saveData[1] = Integer.toString(port);
+				Datagram packet = new Datagram(Datagram.READY_TO_SAVE, TrackersManager.getInstance().getCurrentTracker().getId(),
+						TrackersManager.getInstance().getIdMaster(), Datagram.SAVE_PEER, saveData);
+				TrackersManager.getInstance().sendQueueMessage(packet, TrackersManager.getInstance().getIdMaster());
 				int time = 0;
 				System.out.println("PEERS_MANAGER\tADD PEER - Envia ready to save y se bloquea");
 				while (this.saveProcess == SaveProcess.BLOCK && time < READY_TO_SAVE_TIMEOUT) {
@@ -370,7 +375,11 @@ public class PeersManager extends Observable implements Runnable {
 	private boolean addContent(final String ip, final int port, final String info_hash) {
 		try {
 			this.saveProcess = SaveProcess.BLOCK;
-			TrackersManager.getInstance().sendQueueMessage(Datagram.READY_TO_SAVE, TrackersManager.getInstance().getIdMaster(), null);
+			String[] saveData = new String[1];
+			saveData[0] = info_hash;
+			Datagram packet = new Datagram(Datagram.READY_TO_SAVE, TrackersManager.getInstance().getCurrentTracker().getId(),
+					TrackersManager.getInstance().getIdMaster(), Datagram.SAVE_CONTENT, saveData);
+			TrackersManager.getInstance().sendQueueMessage(packet, TrackersManager.getInstance().getIdMaster());
 			int time = 0;
 			System.out.println("PEERS_MANAGER\tADD CONTENT - Envia ready to save y se bloquea");
 			while (this.saveProcess == SaveProcess.BLOCK && time < READY_TO_SAVE_TIMEOUT) {
@@ -398,7 +407,12 @@ public class PeersManager extends Observable implements Runnable {
 	private void addRelation(final int idPeer, final int idContent, final String info_hash) {
 		try {
 			this.saveProcess = SaveProcess.BLOCK;
-			TrackersManager.getInstance().sendQueueMessage(Datagram.READY_TO_SAVE, TrackersManager.getInstance().getIdMaster(), null);
+			String[] saveData = new String[2];
+			saveData[0] = Integer.toString(idPeer);
+			saveData[1] = Integer.toString(idContent);
+			Datagram packet = new Datagram(Datagram.READY_TO_SAVE, TrackersManager.getInstance().getCurrentTracker().getId(),
+					TrackersManager.getInstance().getIdMaster(), Datagram.ADD_RELATION, saveData);
+			TrackersManager.getInstance().sendQueueMessage(packet, TrackersManager.getInstance().getIdMaster());
 			int time = 0;
 			System.out.println("PEERS_MANAGER\tADD RELATION - Envia ready to save y se bloquea");
 			while (this.saveProcess == SaveProcess.BLOCK && time < READY_TO_SAVE_TIMEOUT) {
@@ -427,7 +441,13 @@ public class PeersManager extends Observable implements Runnable {
 	private void updateDownloaded(final int idPeer, final int idContent, final String info_hash, final int percent) {
 		try {
 			this.saveProcess = SaveProcess.BLOCK;
-			TrackersManager.getInstance().sendQueueMessage(Datagram.READY_TO_SAVE, TrackersManager.getInstance().getIdMaster(), null);
+			String[] saveData = new String[3];
+			saveData[0] = Integer.toString(idPeer);
+			saveData[1] = Integer.toString(idContent);
+			saveData[2] = Integer.toString(percent);
+			Datagram packet = new Datagram(Datagram.READY_TO_SAVE, TrackersManager.getInstance().getCurrentTracker().getId(),
+					TrackersManager.getInstance().getIdMaster(), Datagram.UPDATE_DOWNLOADED, saveData);
+			TrackersManager.getInstance().sendQueueMessage(packet, TrackersManager.getInstance().getIdMaster());
 			int time = 0;
 			System.out.println("PEERS_MANAGER\tUPDATE DOWNLOADED - Envia ready to save y se bloquea");
 			while (this.saveProcess == SaveProcess.BLOCK && time < READY_TO_SAVE_TIMEOUT) {

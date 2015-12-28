@@ -78,7 +78,9 @@ public class TrackersManager extends Observable implements MessageListener {
 	private Timer								timerCheckKeepAlive;
 
 	private int									idMaster;
-	private boolean								savingData;
+	private int									savingCode;
+	private String[]							savingData;
+	private boolean								savingProcess;
 
 	private TrackersManager() {
 		try {
@@ -86,7 +88,8 @@ public class TrackersManager extends Observable implements MessageListener {
 			this.trackersReadyToSave = new ConcurrentHashMap<Integer, Boolean>();
 
 			this.context = new InitialContext();
-			this.savingData = false;
+			this.savingCode = 0;
+			this.savingProcess = false;
 			this.topicConnectionFactory = (TopicConnectionFactory) this.context.lookup(Constants.TOPIC_CONNECTION_FACTORY_NAME);
 			this.queueConnectionFactory = (QueueConnectionFactory) this.context.lookup(Constants.QUEUE_CONNECTION_FACTORY_NAME);
 
@@ -203,7 +206,8 @@ public class TrackersManager extends Observable implements MessageListener {
 		try {
 			Path path = Paths.get(Constants.DATABASE_FILE_PATH.replace("#", Integer.toString(this.currentTracker.getId())));
 			byte[] data = Files.readAllBytes(path);
-			sendQueueMessage(Datagram.DB_REPLICATION, idTracker, data);
+			Datagram packet = new Datagram(Datagram.DB_REPLICATION, this.currentTracker.getId(), idTracker, data);
+			sendQueueMessage(packet, idTracker);
 		} catch (Exception e) {
 			ErrorsLog.getInstance().writeLog(this.getClass().getName(), new Object() {
 			}.getClass().getEnclosingMethod().getName(), e.toString());
@@ -226,11 +230,11 @@ public class TrackersManager extends Observable implements MessageListener {
 		}
 	}
 
-	public synchronized void sendQueueMessage(final int typeDatagram, final int toTrackerId, final byte[] data) {
+	public synchronized void sendQueueMessage(final Datagram packet, final int toTrackerId) {
 		try {
 			ObjectMessage message = this.queueSession.createObjectMessage();
 			message.setStringProperty("Filter", Integer.toString(toTrackerId));
-			message.setObject(new Datagram(typeDatagram, this.currentTracker.getId(), toTrackerId, data));
+			message.setObject(packet);
 			this.queueSender.send(message);
 		} catch (Exception e) {
 			ErrorsLog.getInstance().writeLog(this.getClass().getName(), new Object() {
@@ -386,7 +390,7 @@ public class TrackersManager extends Observable implements MessageListener {
 	private synchronized void updateTrackerKeepAlive(final int idFrom, final boolean isMaster) {
 		try {
 			if (trackers.get(idFrom) == null) {
-				if (!this.savingData) {
+				if (!this.savingProcess) {
 					Tracker t = new Tracker(idFrom, isMaster);
 					t.setLastKeepAlive(new Date());
 					t.setFirstConnection(new Date());
@@ -451,9 +455,39 @@ public class TrackersManager extends Observable implements MessageListener {
 		}
 	}
 
-	private synchronized void onReadyToSaveReceived(final int idTracker) {
+	private synchronized void onReadyToSaveReceived(final int idTracker, final int saveCode, final String[] saveData) {
 		try {
-			this.trackersReadyToSave.put(idTracker, true);
+			if (this.savingCode == 0) {
+				System.out.println("El primero quiere guardar: " + saveCode);
+				for (String data : saveData) {
+					System.out.print(data + " , ");
+				}
+				System.out.println();
+				this.savingCode = saveCode;
+				this.savingData = saveData;
+				this.trackersReadyToSave.put(idTracker, true);
+			} else {
+				System.out.println("Los demas quieren guardar: " + saveCode);
+				for (String data : saveData) {
+					System.out.print(data + " , ");
+				}
+				System.out.println();
+				if (this.savingCode == saveCode) {
+					if (this.savingData.length == saveData.length) {
+						boolean areEqual = true;
+						for (int i = 0; i < this.savingData.length; i++) {
+							if (!this.savingData[i].equals(saveData[i])) {
+								areEqual = false;
+								break;
+							}
+						}
+						if (areEqual) {
+							this.trackersReadyToSave.put(idTracker, true);
+						}
+					}
+				}
+			}
+
 			boolean allReady = true;
 			for (Map.Entry<Integer, Boolean> entry : this.trackersReadyToSave.entrySet()) {
 				if (!entry.getValue()) {
@@ -461,13 +495,15 @@ public class TrackersManager extends Observable implements MessageListener {
 					break;
 				}
 			}
+
 			if (allReady) {
 				System.out.println("Todos los trackers estan listos para guardar");
 				sendTopicMessage(Datagram.SAVE_DATA);
 				for (Map.Entry<Integer, Boolean> entry : this.trackersReadyToSave.entrySet()) {
 					entry.setValue(false);
 				}
-				this.savingData = false;
+				this.savingCode = 0;
+				this.savingProcess = false;
 			}
 
 		} catch (Exception ex) {
@@ -509,8 +545,8 @@ public class TrackersManager extends Observable implements MessageListener {
 					case 2: // READY_TO_SAVE
 						if (this.currentTracker.isMaster()) {
 							System.out.println("El master recibe ready to save");
-							this.savingData = true;
-							onReadyToSaveReceived(datagram.getIdTrackerFrom());
+							this.savingProcess = true;
+							onReadyToSaveReceived(datagram.getIdTrackerFrom(), datagram.getSaveCode(), datagram.getSaveData());
 						}
 						break;
 
