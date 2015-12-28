@@ -93,7 +93,8 @@ public class PeersPanel extends JPanel implements Observer {
 				}
 			}
 		});
-
+		tablePeers.getColumnModel().getColumn(0).setMinWidth(50);
+		tablePeers.getColumnModel().getColumn(0).setMaxWidth(50);
 		tablePeers.getTableHeader().setFont(new Font("Arial", Font.PLAIN, 15));
 
 		scrollPanePeers.setViewportView(tablePeers);
@@ -114,12 +115,14 @@ public class PeersPanel extends JPanel implements Observer {
 		tableContent.setFont(new Font("Segoe UI Symbol", Font.PLAIN, 14));
 		tableContent.setRowHeight(30);
 		tableContent.getTableHeader().setFont(new Font("Arial", Font.PLAIN, 15));
+		tableContent.getColumnModel().getColumn(0).setMinWidth(50);
+		tableContent.getColumnModel().getColumn(0).setMaxWidth(50);
 		scrollPaneContent.setViewportView(tableContent);
 
 		PeersManager.getInstance().addObserver(this);
 	}
 
-	private void updateContentsTableData() {
+	private synchronized void updateContentsTableData() {
 		try {
 			if (this.tablePeers.getSelectedRow() > -1) {
 
@@ -143,6 +146,8 @@ public class PeersPanel extends JPanel implements Observer {
 				this.modelTableContent = new DefaultTableModel();
 				this.modelTableContent.setDataVector(data, headerContent);
 				this.tableContent.setModel(this.modelTableContent);
+				this.tableContent.getColumnModel().getColumn(0).setMinWidth(50);
+				this.tableContent.getColumnModel().getColumn(0).setMaxWidth(50);
 			}
 		} catch (Exception e) {
 			System.out.println("Falla en update contents");
@@ -171,6 +176,9 @@ public class PeersPanel extends JPanel implements Observer {
 				if (peers.size() > selectedRow && selectedRow > -1) {
 					this.tablePeers.setRowSelectionInterval(selectedRow, selectedRow);
 				}
+
+				this.tablePeers.getColumnModel().getColumn(0).setMinWidth(50);
+				this.tablePeers.getColumnModel().getColumn(0).setMaxWidth(50);
 				updateContentsTableData();
 
 			} catch (Exception e) {

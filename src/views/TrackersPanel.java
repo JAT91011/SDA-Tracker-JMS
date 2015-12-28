@@ -69,6 +69,8 @@ public class TrackersPanel extends JPanel implements Observer {
 		trackersTable.setBackground(Color.WHITE);
 		trackersTable.setFont(new Font("Segoe UI Symbol", Font.PLAIN, 14));
 		trackersTable.setRowHeight(30);
+		trackersTable.getColumnModel().getColumn(0).setMinWidth(50);
+		trackersTable.getColumnModel().getColumn(0).setMaxWidth(50);
 
 		trackersTable.getTableHeader().setFont(new Font("Arial", Font.PLAIN, 15));
 
@@ -96,6 +98,8 @@ public class TrackersPanel extends JPanel implements Observer {
 						i++;
 					}
 				}
+				trackersTable.getColumnModel().getColumn(0).setMinWidth(50);
+				trackersTable.getColumnModel().getColumn(0).setMaxWidth(50);
 
 			} catch (Exception e) {
 				ErrorsLog.getInstance().writeLog(this.getClass().getName(), new Object() {
