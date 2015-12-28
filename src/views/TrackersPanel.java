@@ -39,7 +39,7 @@ public class TrackersPanel extends JPanel implements Observer {
 
 		header = new String[4];
 		header[0] = "ID";
-		header[1] = "Master";
+		header[1] = "Mode";
 		header[2] = "Last keep alive";
 		header[3] = "First connection";
 		final String[][] content = new String[1][header.length];
